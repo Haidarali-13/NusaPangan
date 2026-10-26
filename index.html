@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas
+  Halaman  : index.html (Landing Page)
+  Teknologi: HTML5, Tailwind CSS (CDN), Lucide Icons (CDN),
+             Chart.js (CDN), Vanilla JavaScript modular + LocalStorage
+  Berkas   : app.js = modul bersama (tema gelap, grafik, animasi,
+             akun/profil, unggah foto Base64)
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="NusaPangan: urban farming, anti food waste, kalkulator gizi, dan komunitas berbagi pangan." />
+
+  <!-- Font Google: Plus Jakarta Sans (modern, bersih, ramah dibaca) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN (tanpa instalasi) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Konfigurasi tema warna NusaPangan agar konsisten di 5 halaman */
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tua:   '#1B4332', /* Hijau Tua     */
+            segar: '#40916C', /* Hijau Segar   */
+            krem:  '#F8F9FA', /* Background    */
+            panen: '#F4A261'  /* Oranye Panen  */
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js (grafik) + modul bersama NusaPangan (tema gelap, grafik, animasi) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+
+  <style>
+    /* ---------- Smart Insight di bawah doughnut (kontras diperiksa: terang & Mode Malam) ---------- */
+    .na-insight-baris { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .na-insight { flex: 1 1 14rem; display: flex; align-items: flex-start; gap: .6rem; padding: .65rem .8rem; border-radius: .9rem; border: 1px solid; font-size: .8125rem; line-height: 1.4; }
+    .na-insight p { margin: 0; }
+    .na-insight strong { font-weight: 800; }
+    .na-insight-ikon { flex: none; display: inline-flex; margin-top: .05rem; }
+    .na-insight--ok     { background: #E8F5EE; border-color: #A9D9BF; color: #12402A; }
+    .na-insight--ok .na-insight-ikon     { color: #1B7F4F; }
+    .na-insight--warn   { background: #FFF3E0; border-color: #F2C98A; color: #5E3200; }
+    .na-insight--warn .na-insight-ikon   { color: #B45309; }
+    .na-insight--bahaya { background: #FEECEC; border-color: #F3B0B0; color: #7A1A1A; }
+    .na-insight--bahaya .na-insight-ikon { color: #B91C1C; }
+    .na-insight--info   { background: #EEF3F0; border-color: #CFDBD4; color: #1B4332; }
+    .na-insight--info .na-insight-ikon   { color: #2D6A4F; }
+    html.dark .na-insight--ok     { background: rgba(82,183,136,.16);  border-color: rgba(116,211,161,.45); color: #E2F8EB; }
+    html.dark .na-insight--ok .na-insight-ikon     { color: #74D3A1; }
+    html.dark .na-insight--warn   { background: rgba(245,158,11,.17);  border-color: rgba(251,191,36,.45);  color: #FFEFCC; }
+    html.dark .na-insight--warn .na-insight-ikon   { color: #FBBF24; }
+    html.dark .na-insight--bahaya { background: rgba(239,68,68,.18);   border-color: rgba(252,165,165,.5);  color: #FEE7E7; }
+    html.dark .na-insight--bahaya .na-insight-ikon { color: #FCA5A5; }
+    html.dark .na-insight--info   { background: rgba(230,239,234,.08); border-color: rgba(230,239,234,.2);  color: #E6EFEA; }
+    html.dark .na-insight--info .na-insight-ikon   { color: #95D5B2; }
+  </style>
+
+  <style>
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    /* Fokus keyboard yang terlihat (aksesibilitas) */
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    /* Pola titik halus untuk latar hero */
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+    /* Hormati pengguna yang mematikan animasi */
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+    html { scroll-behavior: smooth; }
+    /* Slider bergaya hijau */
+    input[type=range] { accent-color: #40916C; }
+  </style>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam di semua halaman) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <!-- Logo -->
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center" ><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+
+      <!-- Menu desktop: atribut data-nav dipakai JS untuk menandai halaman aktif -->
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a data-nav="index.html"       href="index.html"       class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a data-nav="farming.html"     href="farming.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a data-nav="komunitas.html"   href="komunitas.html"   class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-tua/5">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Tombol menu mobile -->
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+
+    <!-- Menu mobile (tersembunyi secara default) -->
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a data-nav="index.html"       href="index.html"       class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a data-nav="farming.html"     href="farming.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a data-nav="komunitas.html"   href="komunitas.html"   class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+
+  <main>
+    <!-- ===================== HERO SECTION ===================== -->
+    <section class="bg-tua pola-titik text-white">
+      <div class="max-w-6xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-5 gap-10 items-center">
+        <div class="md:col-span-3">
+          <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/10 rounded-full px-3 py-1 mb-5">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-panen"></i>
+            Puluhan juta ton pangan terbuang tiap tahun di Indonesia
+          </p>
+          <h1 class="text-4xl md:text-6xl font-extrabold leading-tight">
+            Pangan cukup untuk semua dimulai dari dapur kita sendiri.
+          </h1>
+          <p class="mt-5 text-lg text-white/80 max-w-xl leading-relaxed">
+            NusaPangan menyatukan kebun kota, kulkas pintar, gizi seimbang, dan komunitas berbagi dalam satu tempat, supaya keluarga Anda lebih tangguh menghadapi krisis pangan.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="farming.html" class="inline-flex items-center gap-2 bg-panen text-tua font-bold px-6 py-3 rounded-xl hover:brightness-95 transition">
+              Mulai Menanam <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            </a>
+            <a href="#statistik" class="inline-flex items-center gap-2 border border-white/30 font-semibold px-6 py-3 rounded-xl hover:bg-white/10 transition">
+              Lihat Datanya
+            </a>
+          </div>
+        </div>
+
+        <!-- Kartu sambutan: menampilkan jumlah kunjungan dari LocalStorage -->
+        <div class="md:col-span-2">
+          <div class="bg-white text-tua rounded-3xl p-6 shadow-xl">
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-2xl bg-segar/15 text-segar grid place-items-center"><i data-lucide="users" class="w-6 h-6"></i></span>
+              <div>
+                <p class="text-sm text-tua/60" data-akun-sapaan="Selamat datang kembali">Selamat datang kembali</p>
+                <p class="font-bold" id="teks-kunjungan">Memuat…</p>
+              </div>
+            </div>
+            <p class="mt-4 text-sm text-tua/70 leading-relaxed">
+              Semua data yang Anda isi di NusaPangan disimpan di perangkat Anda sendiri (LocalStorage), tanpa akun dan tanpa server.
+            </p>
+            <p data-akun-level style="display:none" class="mt-3 text-xs font-bold bg-panen/30 rounded-full px-3 py-1"></p>
+            <button type="button" data-akun-buka class="mt-4 mr-4 inline-flex items-center gap-2 text-sm font-bold bg-tua text-white px-4 py-2 rounded-xl hover:brightness-110">
+              <i data-lucide="user-round" class="w-4 h-4"></i> <span data-akun-label>Masuk / Daftar</span>
+            </button>
+            <button id="btn-reset" type="button" class="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-segar hover:underline">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Hapus semua data NusaPangan
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== STATISTIK INTERAKTIF ===================== -->
+    <section id="statistik" class="max-w-6xl mx-auto px-4 py-16 scroll-mt-16">
+      <h2 class="text-3xl md:text-4xl font-extrabold">Angka yang tidak bisa kita abaikan</h2>
+      <p class="mt-3 text-tua/70 max-w-2xl">Pilih topik untuk melihat gambaran pangan Indonesia. Angka berupa perkiraan dari berbagai lembaga resmi.</p>
+
+      <!-- Tab pilihan topik (pilihan terakhir diingat via LocalStorage) -->
+      <div class="mt-6 inline-flex bg-white border border-tua/10 rounded-xl p-1" role="tablist">
+        <button role="tab" data-tab="sampah"  class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold">Sampah Pangan</button>
+        <button role="tab" data-tab="ketahanan" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold">Ketahanan Pangan</button>
+      </div>
+
+      <!-- Kartu angka: diisi otomatis oleh modul Statistik di JavaScript -->
+      <div id="grid-statistik" class="mt-6 grid md:grid-cols-3 gap-4" aria-live="polite"></div>
+      <p class="mt-3 text-xs text-tua/50">Sumber: Bappenas (kajian food loss & waste), Kemenkes (SSGI), FAO (SOFI). Angka dibulatkan.</p>
+
+      <!-- Simulator: berapa pangan yang bisa diselamatkan keluarga Anda -->
+      <div class="mt-10 bg-white border border-tua/10 rounded-3xl p-6 md:p-8 grid md:grid-cols-2 gap-8 items-center">
+        <div>
+          <h3 class="text-xl font-bold">Simulasi: kurangi sampah pangan keluarga</h3>
+          <p class="mt-2 text-sm text-tua/70 leading-relaxed">Rata-rata orang Indonesia membuang sekitar 115–184 kg pangan per tahun. Geser untuk melihat dampaknya bagi keluarga Anda.</p>
+          <label for="jumlah-anggota" class="block mt-5 text-sm font-semibold">Jumlah anggota keluarga: <span id="label-anggota">4</span></label>
+          <input id="jumlah-anggota" type="range" min="1" max="10" value="4" class="w-full mt-1" />
+          <label for="persen-kurang" class="block mt-4 text-sm font-semibold">Target pengurangan sampah: <span id="label-persen">50</span>%</label>
+          <input id="persen-kurang" type="range" min="0" max="100" step="5" value="50" class="w-full mt-1" />
+        </div>
+        <div class="bg-tua text-white rounded-2xl p-6 text-center">
+          <p class="text-sm text-white/70">Pangan yang diselamatkan per tahun</p>
+          <p class="mt-1 text-5xl font-extrabold text-panen"><span id="hasil-kg">0</span> kg</p>
+          <p class="mt-2 text-sm text-white/80">setara kira-kira <strong id="hasil-porsi">0</strong> porsi makan</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DASBOR: GRAFIK INTERAKTIF (Chart.js) ===================== -->
+    <!-- Seluruh angka & grafik diisi oleh modul Dasbor di app.js dari LocalStorage (data Food Rescue) -->
+    <section id="dasbor" class="max-w-6xl mx-auto px-4 pb-20 scroll-mt-16">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-3xl md:text-4xl font-extrabold">Dasbor pangan rumah Anda</h2>
+          <p class="mt-3 text-tua/70 max-w-2xl">Grafik membaca data dari halaman Food Rescue dan otomatis diperbarui setiap kali stok berubah.</p>
+        </div>
+        <a href="foodrescue.html" class="inline-flex items-center gap-2 text-sm font-bold border border-tua/20 px-4 py-2 rounded-xl hover:bg-tua/5"><i data-lucide="refrigerator" class="w-4 h-4"></i> Kelola stok</a>
+      </div>
+
+      <!-- Kartu angka (counter animasi) -->
+      <div class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="kartu-hidup bg-white border border-tua/10 rounded-3xl p-5">
+          <i data-lucide="package" class="w-6 h-6 text-segar"></i>
+          <p class="mt-3 text-3xl font-extrabold"><span id="dasbor-stok" data-counter>0</span></p>
+          <p class="text-sm text-tua/60">Bahan di kulkas</p>
+        </div>
+        <div class="kartu-hidup bg-white border border-tua/10 rounded-3xl p-5">
+          <i data-lucide="alarm-clock" class="w-6 h-6 text-panen"></i>
+          <p class="mt-3 text-3xl font-extrabold"><span id="dasbor-mendesak" data-counter>0</span></p>
+          <p class="text-sm text-tua/60">Hampir kedaluwarsa</p>
+        </div>
+        <div class="kartu-hidup bg-tua text-white rounded-3xl p-5">
+          <i data-lucide="wallet" class="w-6 h-6 text-panen"></i>
+          <p class="mt-3 text-2xl md:text-3xl font-extrabold"><span id="dasbor-hemat" data-counter data-awalan="Rp ">Rp 0</span></p>
+          <p class="text-sm text-white/70">Uang dihemat</p>
+        </div>
+        <div class="kartu-hidup bg-white border border-tua/10 rounded-3xl p-5">
+          <i data-lucide="percent" class="w-6 h-6 text-segar"></i>
+          <p class="mt-3 text-3xl font-extrabold"><span id="dasbor-persen" data-counter data-akhiran="%">0%</span></p>
+          <div class="mt-3 h-2.5 rounded-full bg-tua/10 overflow-hidden" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Tingkat penyelamatan pangan">
+            <div id="bar-persen" data-anim="1" class="h-full bg-segar rounded-full" style="width:0%"></div>
+          </div>
+          <p class="mt-2 text-sm text-tua/60">Tingkat penyelamatan</p>
+        </div>
+      </div>
+
+      <!-- Dua grafik -->
+      <div class="mt-4 grid lg:grid-cols-2 gap-4">
+        <article class="bg-white border border-tua/10 rounded-3xl p-6">
+          <h3 class="font-bold text-lg">Komposisi stok pangan rumah</h3>
+          <p class="text-xs text-tua/70">Jumlah bahan per kategori (Doughnut Chart)</p>
+          <div class="relative mt-4 h-72">
+            <canvas id="grafik-stok" role="img" aria-label="Grafik komposisi stok pangan per kategori"></canvas>
+            <div id="kosong-stok" style="display:none" class="absolute inset-0 items-center justify-center text-center text-sm text-tua/60 px-6">
+              <p>Belum ada stok. <a href="foodrescue.html" class="font-bold text-segar underline">Tambah di Food Rescue</a></p>
+            </div>
+          </div>
+          <!-- Smart Insight: diisi otomatis oleh Dasbor.renderInsight() di app.js -->
+          <div id="insight-stok" class="na-insight-baris mt-4" role="status" aria-live="polite" aria-label="Analisis otomatis stok pangan"></div>
+        </article>
+        <article class="bg-white border border-tua/10 rounded-3xl p-6">
+          <h3 class="font-bold text-lg">Penghematan & reduksi sampah bulanan</h3>
+          <p class="text-xs text-tua/60">Batang = uang dihemat, garis = item. Bulan bertanda * adalah proyeksi (rata-rata bulan yang punya data).</p>
+          <div class="relative mt-4 h-72 lg:h-[22rem]">
+            <canvas id="grafik-hemat" role="img" aria-label="Grafik penghematan dan proyeksi bulanan"></canvas>
+            <div id="kosong-hemat" style="display:none" class="absolute inset-0 items-center justify-center text-center text-sm text-tua/60 px-6">
+              <p>Belum ada riwayat. Tandai bahan sebagai "Sudah diolah" di <a href="foodrescue.html" class="font-bold text-segar underline">Food Rescue</a>.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================== BENTO GRID: 4 PILAR ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pb-20">
+      <h2 class="text-3xl md:text-4xl font-extrabold">Empat pilar NusaPangan</h2>
+      <p class="mt-3 text-tua/70 max-w-2xl">Setiap fitur saling terhubung: menanam, menyimpan, menyantap dengan gizi tepat, lalu berbagi.</p>
+
+      <div class="mt-8 grid md:grid-cols-6 gap-4">
+        <!-- Pilar 1: Urban Farming (kartu besar) -->
+        <article class="md:col-span-4 bg-segar text-white rounded-3xl p-8 flex flex-col justify-between min-h-[260px]">
+          <div>
+            <i data-lucide="leaf" class="w-9 h-9 text-panen"></i>
+            <h3 class="mt-4 text-2xl font-bold">Smart Urban Farming</h3>
+            <p class="mt-2 text-white/90 max-w-md leading-relaxed">Rencanakan kebun di pekarangan atau balkon, dan sesuaikan jadwal tanam dengan kondisi iklim.</p>
+          </div>
+          <a href="farming.html" class="mt-6 self-start inline-flex items-center gap-2 bg-white text-tua font-bold px-5 py-2.5 rounded-xl hover:bg-krem transition">Buka Urban Farming <i data-lucide="arrow-up-right" class="w-4 h-4"></i></a>
+        </article>
+
+        <!-- Pilar 2: Food Rescue -->
+        <article class="md:col-span-2 bg-panen text-tua rounded-3xl p-8 flex flex-col justify-between min-h-[260px]">
+          <div>
+            <i data-lucide="refrigerator" class="w-9 h-9"></i>
+            <h3 class="mt-4 text-2xl font-bold">Food Rescue</h3>
+            <p class="mt-2 leading-relaxed">Catat stok kulkas dan terima peringatan sebelum bahan kedaluwarsa.</p>
+          </div>
+          <a href="foodrescue.html" class="mt-6 self-start inline-flex items-center gap-2 bg-tua text-white font-bold px-5 py-2.5 rounded-xl hover:brightness-110 transition">Kelola Stok <i data-lucide="arrow-up-right" class="w-4 h-4"></i></a>
+        </article>
+
+        <!-- Pilar 3: Nutrisi -->
+        <article class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-8 flex flex-col justify-between min-h-[260px]">
+          <div>
+            <i data-lucide="apple" class="w-9 h-9 text-segar"></i>
+            <h3 class="mt-4 text-2xl font-bold">Kalkulator Gizi</h3>
+            <p class="mt-2 text-tua/70 leading-relaxed">Hitung kebutuhan kalori dan dapatkan rekomendasi menu seimbang.</p>
+          </div>
+          <a href="nutrisi.html" class="mt-6 self-start inline-flex items-center gap-2 bg-segar text-white font-bold px-5 py-2.5 rounded-xl hover:brightness-110 transition">Hitung Gizi <i data-lucide="arrow-up-right" class="w-4 h-4"></i></a>
+        </article>
+
+        <!-- Pilar 4: Komunitas (kartu besar) -->
+        <article class="md:col-span-4 bg-tua text-white rounded-3xl p-8 flex flex-col justify-between min-h-[260px]">
+          <div>
+            <i data-lucide="hand-heart" class="w-9 h-9 text-panen"></i>
+            <h3 class="mt-4 text-2xl font-bold">Forum Berbagi Pangan</h3>
+            <p class="mt-2 text-white/80 max-w-md leading-relaxed">Bagikan surplus hasil panen, tanya tips, dan balas komentar tetangga dalam satu forum komunitas.</p>
+          </div>
+          <a href="komunitas.html" class="mt-6 self-start inline-flex items-center gap-2 bg-panen text-tua font-bold px-5 py-2.5 rounded-xl hover:brightness-95 transition">Gabung Komunitas <i data-lucide="arrow-up-right" class="w-4 h-4"></i></a>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center" ><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Proyek</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- ===================== JAVASCRIPT MODULAR ===================== -->
+  <script>
+    'use strict';
+
+    /**
+     * Modul Penyimpanan: pembungkus LocalStorage yang aman (try/catch)
+     * dan memakai awalan "nusapangan:" agar data tidak bentrok.
+     */
+    const Penyimpanan = {
+      awalan: 'nusapangan:',
+
+      /**
+       * Mengambil data dari LocalStorage.
+       * @param {string} kunci - nama data
+       * @param {*} cadangan - nilai bila data belum ada / rusak
+       * @returns {*} data yang tersimpan atau nilai cadangan
+       */
+      ambil(kunci, cadangan) {
+        try {
+          const mentah = localStorage.getItem(this.awalan + kunci);
+          return mentah === null ? cadangan : JSON.parse(mentah);
+        } catch (e) { return cadangan; }
+      },
+
+      /**
+       * Menyimpan data ke LocalStorage.
+       * @param {string} kunci - nama data
+       * @param {*} nilai - data yang akan disimpan
+       */
+      simpan(kunci, nilai) {
+        try { localStorage.setItem(this.awalan + kunci, JSON.stringify(nilai)); } catch (e) { /* penyimpanan penuh/diblokir */ }
+      },
+
+      /** Menghapus seluruh data milik NusaPangan saja. */
+      hapusSemua() {
+        try {
+          Object.keys(localStorage)
+            .filter(k => k.startsWith(this.awalan))
+            .forEach(k => localStorage.removeItem(k));
+        } catch (e) { /* diabaikan */ }
+      }
+    };
+
+    /** Modul Navigasi: menu mobile dan penanda halaman aktif. */
+    const Navigasi = {
+      init() {
+        // Tandai link sesuai halaman yang sedang dibuka
+        const halaman = location.pathname.split('/').pop() || 'index.html';
+        document.querySelectorAll('[data-nav]').forEach(a => {
+          if (a.dataset.nav === halaman) {
+            a.classList.add('bg-tua', 'text-white');
+            a.classList.remove('hover:bg-tua/5');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+
+        // Buka/tutup menu mobile
+        const tombol = document.getElementById('btn-menu');
+        const menu = document.getElementById('menu-mobile');
+        tombol.addEventListener('click', () => {
+          const terbuka = menu.classList.toggle('hidden') === false;
+          tombol.setAttribute('aria-expanded', String(terbuka));
+        });
+      }
+    };
+
+    /** Modul Kunjungan: menghitung berapa kali pengguna membuka beranda. */
+    const Kunjungan = {
+      init() {
+        const jumlah = Penyimpanan.ambil('kunjungan', 0) + 1;
+        Penyimpanan.simpan('kunjungan', jumlah);
+        document.getElementById('teks-kunjungan').textContent =
+          jumlah === 1 ? 'Kunjungan pertama Anda' : `Kunjungan ke-${jumlah}`;
+
+        // Tombol reset seluruh data aplikasi (dengan konfirmasi)
+        document.getElementById('btn-reset').addEventListener('click', () => {
+          if (confirm('Hapus semua data NusaPangan di perangkat ini?')) {
+            Penyimpanan.hapusSemua();
+            location.reload();
+          }
+        });
+      }
+    };
+
+    /**
+     * Modul Statistik: tab data + animasi hitung naik saat terlihat di layar.
+     */
+    const Statistik = {
+      /** Data statistik per topik. Ubah di sini bila ingin memperbarui angka. */
+      data: {
+        sampah: [
+          { angka: 48,  desimal: 0, satuan: ' juta ton', label: 'Sampah pangan per tahun (batas atas perkiraan)', ikon: 'trash-2' },
+          { angka: 184, desimal: 0, satuan: ' kg',       label: 'Pangan terbuang per orang per tahun (batas atas)', ikon: 'user' },
+          { angka: 551, desimal: 0, satuan: ' T rupiah', label: 'Kerugian ekonomi per tahun (batas atas)', ikon: 'wallet' }
+        ],
+        ketahanan: [
+          { angka: 21.5, desimal: 1, satuan: '%', label: 'Balita stunting (SSGI 2023)', ikon: 'baby' },
+          { angka: 8.5,  desimal: 1, satuan: '%', label: 'Penduduk kekurangan pangan kronis (FAO)', ikon: 'wheat-off' },
+          { angka: 280,  desimal: 0, satuan: ' juta', label: 'Jiwa yang harus tercukupi pangannya', ikon: 'users' }
+        ]
+      },
+
+      /**
+       * Menggambar kartu angka sesuai topik, lalu menjalankan animasi hitung.
+       * @param {'sampah'|'ketahanan'} topik
+       */
+      tampilkan(topik) {
+        const wadah = document.getElementById('grid-statistik');
+        wadah.innerHTML = this.data[topik].map((s, i) => `
+          <div class="rounded-3xl p-6 ${i === 0 ? 'bg-tua text-white' : 'bg-white border border-tua/10'}">
+            <i data-lucide="${s.ikon}" class="w-7 h-7 ${i === 0 ? 'text-panen' : 'text-segar'}"></i>
+            <p class="mt-4 text-4xl font-extrabold">
+              <span data-target="${s.angka}" data-desimal="${s.desimal}">0</span>${s.satuan}
+            </p>
+            <p class="mt-2 text-sm ${i === 0 ? 'text-white/80' : 'text-tua/70'}">${s.label}</p>
+          </div>`).join('');
+        lucide.createIcons();
+        this.amati(wadah); // animasi baru berjalan saat angka terlihat di layar
+
+        // Perbarui tampilan tab aktif & simpan pilihan
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          const aktif = b.dataset.tab === topik;
+          b.classList.toggle('bg-tua', aktif);
+          b.classList.toggle('text-white', aktif);
+          b.setAttribute('aria-selected', String(aktif));
+        });
+        Penyimpanan.simpan('tabStatistik', topik);
+      },
+
+      /** True bila pengguna meminta animasi dikurangi (aksesibilitas). */
+      reduksi: !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+
+      /** IntersectionObserver aktif untuk kartu angka yang sedang digambar. */
+      pengamat: null,
+
+      /**
+       * Menulis angka berformat Indonesia ke elemen (memakai data-desimal).
+       * @param {HTMLElement} el - elemen angka
+       * @param {number} nilai - angka yang ditulis
+       */
+      tulis(el, nilai) {
+        const desimal = parseInt(el.dataset.desimal, 10) || 0;
+        el.textContent = nilai.toLocaleString('id-ID', { minimumFractionDigits: desimal, maximumFractionDigits: desimal });
+      },
+
+      /**
+       * Menunda animasi angka sampai elemennya masuk ke layar (IntersectionObserver),
+       * sehingga efek tidak terbuang saat #statistik masih di luar viewport.
+       * Pengguna yang mengurangi animasi langsung melihat angka akhir.
+       * @param {HTMLElement} wadah - #grid-statistik
+       */
+      amati(wadah) {
+        if (this.pengamat) { this.pengamat.disconnect(); this.pengamat = null; }
+        const daftar = wadah.querySelectorAll('[data-target]');
+        if (this.reduksi) { daftar.forEach(el => this.tulis(el, parseFloat(el.dataset.target))); return; }
+        if (!('IntersectionObserver' in window)) { daftar.forEach(el => this.animasi(el)); return; }
+        this.pengamat = new IntersectionObserver((entri, io) => {
+          entri.forEach(e => {
+            if (!e.isIntersecting) return;
+            io.unobserve(e.target); // sekali saja per kartu
+            this.animasi(e.target);
+          });
+        }, { threshold: 0.4, rootMargin: '0px 0px -8% 0px' });
+        daftar.forEach(el => this.pengamat.observe(el));
+      },
+
+      /**
+       * Animasi angka naik dari 0 ke target selama ±1,2 detik.
+       * @param {HTMLElement} el - elemen yang berisi data-target
+       */
+      animasi(el) {
+        const target = parseFloat(el.dataset.target);
+        const durasi = 1200, mulai = performance.now();
+        cancelAnimationFrame(el._raf);
+        const langkah = (sekarang) => {
+          const p = Math.min((sekarang - mulai) / durasi, 1);
+          this.tulis(el, target * (1 - Math.pow(1 - p, 3))); // easing keluar
+          if (p < 1) el._raf = requestAnimationFrame(langkah);
+        };
+        el._raf = requestAnimationFrame(langkah);
+      },
+
+      init() {
+        document.querySelectorAll('.tab-btn').forEach(b =>
+          b.addEventListener('click', () => this.tampilkan(b.dataset.tab)));
+        // Pulihkan tab terakhir yang dipilih pengguna
+        this.tampilkan(Penyimpanan.ambil('tabStatistik', 'sampah'));
+      }
+    };
+
+    /**
+     * Modul Simulator: menghitung pangan yang diselamatkan keluarga.
+     * Asumsi: 150 kg sampah pangan/orang/tahun, 1 porsi makan ≈ 0,4 kg.
+     */
+    const Simulator = {
+      KG_PER_ORANG: 150,
+      KG_PER_PORSI: 0.4,
+
+      /** Menghitung ulang hasil, menampilkannya, dan menyimpan pengaturan. */
+      hitung() {
+        const anggota = parseInt(document.getElementById('jumlah-anggota').value, 10);
+        const persen = parseInt(document.getElementById('persen-kurang').value, 10);
+        const kg = Math.round(anggota * this.KG_PER_ORANG * persen / 100);
+        const porsi = Math.round(kg / this.KG_PER_PORSI);
+
+        document.getElementById('label-anggota').textContent = anggota;
+        document.getElementById('label-persen').textContent = persen;
+        document.getElementById('hasil-kg').textContent = kg.toLocaleString('id-ID');
+        document.getElementById('hasil-porsi').textContent = porsi.toLocaleString('id-ID');
+        Penyimpanan.simpan('simulator', { anggota, persen });
+      },
+
+      init() {
+        // Pulihkan nilai terakhir dari LocalStorage
+        const tersimpan = Penyimpanan.ambil('simulator', { anggota: 4, persen: 50 });
+        document.getElementById('jumlah-anggota').value = tersimpan.anggota;
+        document.getElementById('persen-kurang').value = tersimpan.persen;
+        ['jumlah-anggota', 'persen-kurang'].forEach(id =>
+          document.getElementById(id).addEventListener('input', () => this.hitung()));
+        this.hitung();
+      }
+    };
+
+    /** Titik masuk: dijalankan setelah seluruh HTML selesai dimuat. */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tahun').textContent = new Date().getFullYear();
+      Navigasi.init();
+      Kunjungan.init();
+      Statistik.init();
+      Simulator.init();
+      lucide.createIcons(); // ubah semua <i data-lucide> menjadi ikon SVG
+    });
+  </script>
+</body>
+</html>

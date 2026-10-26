@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas
+  Halaman  : komunitas.html (Forum Komunitas & Bursa Berbagi Pangan)
+  Fitur    : 1) Membuat postingan baru
+             2) Membalas komentar (penghitung otomatis)
+             3) Pencarian real-time & filter kategori
+             4) Tombol dukungan (like)
+             5) Data contoh agar forum terlihat hidup
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Komunitas — NusaPangan</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="Ruang diskusi dan tanya jawab seputar ketahanan pangan keluarga: tips berkebun, resep, kendala dapur, serta berbagi pangan antarwarga." />
+
+  <!-- Font, Tailwind, dan ikon: sama persis dengan halaman lain -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Tema warna NusaPangan (harus sama di semua halaman) */
+    tailwind.config = {
+      theme: { extend: {
+        colors: { tua: '#1B4332', segar: '#40916C', krem: '#F8F9FA', panen: '#F4A261' },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+      } }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+    /* Gaya bersama untuk kolom isian */
+    .isian { width: 100%; border: 1px solid rgba(27,67,50,.2); background: #fff; border-radius: .75rem; padding: .6rem .9rem; font-size: .875rem; }
+    /* Scrollbar tipis untuk daftar postingan (terang & gelap) */
+    #feed { scrollbar-width: thin; scrollbar-color: rgba(27,67,50,.35) transparent; }
+    #feed::-webkit-scrollbar { width: 8px; }
+    #feed::-webkit-scrollbar-track { background: transparent; }
+    #feed::-webkit-scrollbar-thumb { background: rgba(27,67,50,.3); border-radius: 999px; }
+    #feed::-webkit-scrollbar-thumb:hover { background: rgba(27,67,50,.5); }
+    html.dark #feed { scrollbar-color: rgba(230,239,234,.3) transparent; }
+    html.dark #feed::-webkit-scrollbar-thumb { background: rgba(230,239,234,.28); }
+    html.dark #feed::-webkit-scrollbar-thumb:hover { background: rgba(230,239,234,.5); }
+  </style>
+  <!-- Modul bersama NusaPangan: tombol mode gelap & animasi -->
+  <script src="app.js"></script>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam di semua halaman) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center"> <img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a data-nav="index.html"       href="index.html"       class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a data-nav="farming.html"     href="farming.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a data-nav="komunitas.html"   href="komunitas.html"   class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-tua/5">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a data-nav="index.html"       href="index.html"       class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a data-nav="farming.html"     href="farming.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a data-nav="komunitas.html"   href="komunitas.html"   class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+
+  <main>
+    <!-- ===================== HEADER HALAMAN ===================== -->
+    <section class="bg-tua pola-titik text-white">
+      <div class="max-w-6xl mx-auto px-4 py-14 md:py-20">
+        <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/10 rounded-full px-3 py-1 mb-5">
+          <i data-lucide="messages-square" class="w-4 h-4 text-panen"></i> Ruang Diskusi Warga &amp; Keluarga
+        </p>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight max-w-3xl">Bertanya, berdiskusi, dan tumbuh bersama.</h1>
+        <p class="mt-4 text-lg text-white/80 max-w-2xl leading-relaxed">Tanyakan kendala dapur, bagikan tips berkebun dan resep, atau diskusikan cara menjaga ketahanan pangan keluarga. Berbagi makanan dan hasil panen juga tetap tersedia.</p>
+      </div>
+    </section>
+
+    <section class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-5 gap-6">
+
+      <!-- ===================== FITUR 1: FORM POSTINGAN ===================== -->
+      <form id="form-post" class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-6 space-y-4 self-start md:sticky md:top-20" novalidate>
+        <h2 id="judul-form" class="text-xl font-extrabold">Mulai diskusi atau ajukan pertanyaan</h2>
+        <input id="in-edit-id" type="hidden" value="" />
+        <!-- Nama penulis diisi otomatis dari akun yang sedang masuk (app.js → NusaPangan.Akun) -->
+        <div>
+          <label for="in-nama" class="block text-sm font-semibold mb-1">Menulis sebagai</label>
+          <div class="flex gap-2">
+            <input id="in-nama" type="text" readonly placeholder="Belum masuk" class="isian" />
+            <button id="btn-akun-form" type="button" class="border border-tua/20 text-sm font-semibold px-4 rounded-xl hover:bg-tua/5 whitespace-nowrap">Masuk</button>
+          </div>
+        </div>
+        <div>
+          <label for="in-kategori" class="block text-sm font-semibold mb-1">Kategori</label>
+          <select id="in-kategori" class="isian"></select>
+        </div>
+        <div>
+          <label for="in-judul" class="block text-sm font-semibold mb-1">Judul</label>
+          <input id="in-judul" type="text" maxlength="80" placeholder="Contoh: Cara hemat belanja dapur?" class="isian" required />
+        </div>
+        <div>
+          <label for="in-isi" class="block text-sm font-semibold mb-1">Isi postingan</label>
+          <textarea id="in-isi" rows="5" maxlength="600" placeholder="Ceritakan pertanyaan, pengalaman, atau detail yang ingin dibahas" class="isian" required></textarea>
+        </div>
+        <div>
+          <label for="in-foto" class="block text-sm font-semibold mb-1">Foto <span class="font-normal text-tua/50">(opsional, maks. 5 MB)</span></label>
+          <input id="in-foto" type="file" accept="image/*" class="isian text-xs" />
+          <div id="pratinjau-foto" class="hidden mt-2">
+            <img id="img-foto" alt="Pratinjau foto" class="w-full max-h-48 object-cover rounded-xl border border-tua/10" />
+            <button id="hapus-foto" type="button" class="mt-1 text-sm font-semibold text-red-700 hover:underline">Hapus foto</button>
+          </div>
+          <p id="galat-foto" class="text-sm mt-1 hidden" role="status"></p>
+        </div>
+        <p id="galat-post" class="text-sm text-red-700 hidden" role="alert"></p>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="flex-1 inline-flex justify-center items-center gap-2 bg-tua text-white font-bold px-5 py-3 rounded-xl hover:brightness-110 transition">
+            <i data-lucide="send" class="w-4 h-4"></i> <span id="teks-kirim">Kirim postingan</span>
+          </button>
+          <button id="btn-batal-edit" type="button" class="hidden border border-tua/20 text-sm font-semibold px-4 py-3 rounded-xl hover:bg-tua/5">Batal edit</button>
+          <!-- Integrasi dengan Food Rescue: isi otomatis dari stok yang hampir kedaluwarsa -->
+          <button id="btn-isi-stok" type="button" class="inline-flex items-center gap-2 border border-tua/20 text-sm font-semibold px-4 py-3 rounded-xl hover:bg-tua/5">
+            <i data-lucide="refrigerator" class="w-4 h-4"></i> Isi dari stok kulkas
+          </button>
+        </div>
+      </form>
+
+      <!-- ===================== FEED + PENCARIAN + FILTER ===================== -->
+      <div class="md:col-span-3">
+        <!-- FITUR 3: pencarian real-time -->
+        <div id="toolbar" class="relative">
+          <label for="cari" class="sr-only">Cari postingan</label>
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-tua/40"></i>
+          <input id="cari" type="search" placeholder="Cari judul atau isi postingan…" class="isian pl-9" />
+        </div>
+        <!-- Filter kategori (diisi JS) -->
+        <div id="chip-kategori" class="mt-3 flex flex-wrap gap-2 text-sm font-semibold" role="group" aria-label="Filter kategori"></div>
+        <p id="jumlah-hasil" class="mt-3 text-sm text-tua/60" aria-live="polite"></p>
+
+        <div id="feed" class="mt-3 space-y-4 pt-1 max-h-[72vh] overflow-y-auto pr-2 overscroll-contain"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notifikasi singkat (toast) -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-tua text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl hidden z-50" role="status"></div>
+
+  <!-- ===================== FOOTER (seragam) ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Proyek</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- ===================== JAVASCRIPT MODULAR ===================== -->
+  <script>
+    'use strict';
+
+    /* ---------- KONFIGURASI ---------- */
+
+    /** Kategori postingan: label, ikon Lucide, dan warna lencana. */
+    const KATEGORI = {
+      diskusi: { label: 'Diskusi & Tanya Jawab', ikon: 'messages-square', badge: 'bg-tua text-white' },
+      tanya:   { label: 'Tanya Jawab Cepat',     ikon: 'help-circle',     badge: 'bg-tua/10 text-tua' },
+      tips:    { label: 'Tips & Pengalaman',     ikon: 'sprout',          badge: 'bg-segar/20 text-tua' },
+      tukar:   { label: 'Tukar Hasil Panen',     ikon: 'repeat',          badge: 'bg-segar/20 text-tua' },
+      donasi:  { label: 'Berbagi Makanan',       ikon: 'gift',            badge: 'bg-panen/30 text-tua' }
+    };
+
+    /* ---------- MODUL UTILITAS ---------- */
+
+    /** Pembungkus LocalStorage aman (sama dengan halaman lain). */
+    const Penyimpanan = {
+      awalan: 'nusapangan:',
+      /** Mengambil data; mengembalikan `cadangan` bila kosong/rusak. */
+      ambil(kunci, cadangan) {
+        try { const m = localStorage.getItem(this.awalan + kunci); return m === null ? cadangan : JSON.parse(m); }
+        catch (e) { return cadangan; }
+      },
+      /** Menyimpan data (otomatis diubah ke JSON). @returns {boolean} false bila penyimpanan penuh. */
+      simpan(kunci, nilai) {
+        try { localStorage.setItem(this.awalan + kunci, JSON.stringify(nilai)); return true; } catch (e) { return false; /* penyimpanan penuh/diblokir */ }
+      }
+    };
+
+    /** Fungsi bantu umum. */
+    const Util = {
+      /** Mengamankan teks dari penyisipan HTML (mencegah XSS). */
+      esc(teks) { const d = document.createElement('div'); d.textContent = teks; return d.innerHTML; },
+
+      /** Seperti esc(), tetapi baris baru diubah menjadi <br> agar paragraf terbaca. */
+      escBaris(teks) { return this.esc(teks).replace(/\n/g, '<br>'); },
+
+      /** Membuat id unik untuk postingan/komentar. */
+      id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); },
+
+      /**
+       * Mengubah waktu (ms) menjadi teks relatif, contoh: "3 jam lalu".
+       * @param {number} ts - timestamp dalam milidetik
+       */
+      waktuLalu(ts) {
+        const menit = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+        if (menit < 1) return 'baru saja';
+        if (menit < 60) return `${menit} menit lalu`;
+        if (menit < 1440) return `${Math.floor(menit / 60)} jam lalu`;
+        return `${Math.floor(menit / 1440)} hari lalu`;
+      },
+
+      /** Selisih hari antara hari ini dan tanggal exp (negatif bila sudah lewat). */
+      sisaHari(exp) {
+        const hariIni = new Date().toLocaleDateString('en-CA');
+        return Math.round((new Date(exp + 'T00:00:00') - new Date(hariIni + 'T00:00:00')) / 86400000);
+      },
+
+      /**
+       * Menampilkan notifikasi singkat selama 2,5 detik. Memakai toast terpusat
+       * NusaPangan.toast (app.js) bila tersedia; bila tidak, memakai elemen #toast sendiri.
+       */
+      toast(pesan) {
+        if (window.NusaPangan && typeof window.NusaPangan.toast === 'function') { window.NusaPangan.toast(pesan); return; }
+        const el = document.getElementById('toast');
+        el.textContent = pesan;
+        el.classList.remove('hidden');
+        clearTimeout(this._t);
+        this._t = setTimeout(() => el.classList.add('hidden'), 2500);
+      }
+    };
+
+    /** Menandai halaman aktif dan mengatur menu mobile. */
+    const Navigasi = {
+      init() {
+        const halaman = location.pathname.split('/').pop() || 'index.html';
+        document.querySelectorAll('[data-nav]').forEach(a => {
+          if (a.dataset.nav === halaman) {
+            a.classList.add('bg-tua', 'text-white');
+            a.classList.remove('hover:bg-tua/5');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+        const tombol = document.getElementById('btn-menu');
+        const menu = document.getElementById('menu-mobile');
+        tombol.addEventListener('click', () => {
+          const terbuka = menu.classList.toggle('hidden') === false;
+          tombol.setAttribute('aria-expanded', String(terbuka));
+        });
+      }
+    };
+
+    /* ---------- MODUL DATA ---------- */
+
+    /**
+     * Mengelola postingan di LocalStorage.
+     * Bentuk satu postingan:
+     * { id, nama, kategori, judul, isi, waktu, like, milik, komentar: [{ id, nama, isi, waktu }] }
+     * - like  : jumlah dukungan
+     * - milik : true bila dibuat di perangkat ini (boleh dihapus)
+     */
+    const Data = {
+      posts: [],
+      /** Daftar id postingan yang sudah didukung pengguna ini. */
+      sukai: [],
+
+      /** Data contoh agar forum terlihat ramai saat pertama dibuka. */
+      contoh() {
+        const m = 60000, j = 60 * m, h = 24 * j, sekarang = Date.now();
+        return [
+          { id: 'c1', nama: 'Bu Ratna', kategori: 'diskusi', judul: 'Cara hemat belanja dapur untuk keluarga 4 orang?', waktu: sekarang - 20 * m, like: 18, milik: false,
+            isi: 'Harga bahan pokok terus naik dan anggaran dapur saya makin ketat. Bagaimana cara teman-teman menghemat tanpa mengurangi gizi keluarga? Saya sudah mencoba membuat menu mingguan, tetapi masih sering boros di sayur dan lauk.',
+            komentar: [
+              { id: 'c1a', nama: 'Kak Sari',  isi: 'Tanam sendiri sayuran yang cepat panen seperti kangkung dan bayam di polybag. Modalnya kecil, dan bisa dipanen berulang.', waktu: sekarang - 17 * m },
+              { id: 'c1b', nama: 'Pak Anton', isi: 'Belanja sekali seminggu di pasar tradisional pagi hari. Harga lebih murah dan bahan lebih segar dibanding belanja harian.', waktu: sekarang - 13 * m },
+              { id: 'c1c', nama: 'Dina',      isi: 'Ganti sebagian lauk hewani dengan tempe dan tahu. Gizinya tetap baik, harganya jauh lebih hemat.', waktu: sekarang - 9 * m },
+              { id: 'c1d', nama: 'Bu Ratna',  isi: 'Terima kasih semuanya! Saya mulai dari menu mingguan dengan tempe dua kali seminggu, lalu coba menanam kangkung.', waktu: sekarang - 4 * m }
+            ] },
+          { id: 'c2', nama: 'Rizky', kategori: 'tanya', judul: 'Media tanam apa yang paling cocok untuk sayuran di polybag?', waktu: sekarang - 1 * j, like: 11, milik: false,
+            isi: 'Saya baru mulai berkebun di teras. Bingung memilih media tanam: tanah biasa saja, campuran kompos dan sekam, atau cocopeat? Mana yang paling mudah dan murah untuk pemula?',
+            komentar: [
+              { id: 'c2a', nama: 'Kak Sari', isi: 'Untuk pemula, campuran tanah, kompos, dan sekam bakar dengan perbandingan 1:1:1 sudah sangat bagus. Gembur dan tidak mudah tergenang.', waktu: sekarang - 50 * m },
+              { id: 'c2b', nama: 'Pak Dedi', isi: 'Cocopeat bagus untuk menahan air, tapi sebaiknya dicampur kompos supaya nutrisinya cukup.', waktu: sekarang - 40 * m },
+              { id: 'c2c', nama: 'Budi',     isi: 'Jangan lupa lubangi dasar polybag agar air tidak menggenang dan akar tidak busuk.', waktu: sekarang - 30 * m },
+              { id: 'c2d', nama: 'Rizky',    isi: 'Siap, saya coba campuran 1:1:1 dulu. Terima kasih banyak!', waktu: sekarang - 20 * m }
+            ] },
+          { id: 'c3', nama: 'Kak Sari', kategori: 'tips', judul: 'Cara mencegah jamur di polybag saat musim hujan', waktu: sekarang - 5 * j, like: 21, milik: false,
+            isi: 'Tiga hal yang membantu saya: 1) lubangi dasar polybag dan letakkan di rak agar tidak tergenang, 2) beri atap plastik bening, 3) buang daun yang menguning supaya jamur tidak menular.',
+            komentar: [
+              { id: 'c3a', nama: 'Budi', isi: 'Tips atap plastiknya berhasil di kebun saya. Terima kasih Kak!', waktu: sekarang - 4 * j }
+            ] },
+          { id: 'c4', nama: 'Pak Dedi', kategori: 'tukar', judul: 'Panen cabai rawit melimpah, tukar dengan bayam atau kangkung', waktu: sekarang - 8 * j, like: 8, milik: false,
+            isi: 'Cabai rawit di polybag panen hampir 1 ons per hari. Saya ingin tukar dengan sayuran daun seperti bayam atau kangkung. Lokasi di Blok C.',
+            komentar: [
+              { id: 'c4a', nama: 'Sari',     isi: 'Saya punya kangkung hidroponik, siap tukar Pak.', waktu: sekarang - 7 * j },
+              { id: 'c4b', nama: 'Pak Dedi', isi: 'Siap Bu Sari, besok pagi ya.', waktu: sekarang - 6 * j }
+            ] },
+          { id: 'c5', nama: 'Bu Ratna', kategori: 'donasi', judul: '2 kg pisang matang berlebih, ambil gratis', waktu: sekarang - 1 * h, like: 12, milik: false,
+            isi: 'Pisang kepok di rumah matang bersamaan. Silakan diambil gratis di pos RT 05 sebelum jam 5 sore. Cocok untuk kolak atau pancake.',
+            komentar: [
+              { id: 'c5a', nama: 'Pak Anton', isi: 'Mau Bu, saya ambil sekitar jam 4 ya.', waktu: sekarang - 20 * j }
+            ] }
+        ];
+      },
+
+      /** Memuat data; bila pertama kali dibuka, pakai data contoh. */
+      muat() {
+        if (!Penyimpanan.ambil('komunitasSiap_v2', false)) {
+          this.posts = this.contoh();
+          this.sukai = [];
+          this.simpan();
+          Penyimpanan.simpan('komunitasSiap_v2', true);
+        } else {
+          const p = Penyimpanan.ambil('postingan', []);
+          this.posts = Array.isArray(p) ? p : [];
+          this.sukai = Penyimpanan.ambil('sukai', []);
+        }
+      },
+
+      /** Menyimpan postingan dan daftar dukungan ke LocalStorage. @returns {boolean} false bila penyimpanan penuh. */
+      simpan() {
+        return Penyimpanan.simpan('postingan', this.posts) && Penyimpanan.simpan('sukai', this.sukai);
+      },
+
+      /**
+       * Memuat ulang postingan dan dukungan dari LocalStorage.
+       * Dipanggil saat akun berubah, karena app.js dapat mengubah data (misalnya
+       * nama penulis setelah profil diedit) langsung di penyimpanan.
+       */
+      segarkan() {
+        const p = Penyimpanan.ambil('postingan', null);
+        if (Array.isArray(p)) this.posts = p;
+        const s = Penyimpanan.ambil('sukai', null);
+        if (Array.isArray(s)) this.sukai = s;
+      },
+
+      /** Mencari postingan berdasarkan id. */
+      cari(id) { return this.posts.find(p => p.id === id); }
+    };
+
+    /** Modul akun dari app.js (login simulasi, profil). */
+    const Akun = NusaPangan.Akun;
+
+    /**
+     * Menentukan apakah akun yang sedang masuk boleh mengedit/menghapus sebuah postingan.
+     * Postingan baru punya `penulisId`; postingan lama (tanpa penulisId) memakai penanda `milik`.
+     * @param {object} p - postingan
+     * @returns {boolean}
+     */
+    function bolehUbah(p) {
+      const a = Akun.aktif();
+      return !!a && (p.penulisId ? p.penulisId === a.id : !!p.milik);
+    }
+
+    /**
+     * Apakah postingan punya status "sudah diambil / selesai"? Hanya kategori donasi dan tukar.
+     * Status disimpan di properti `selesai` (true/false) pada postingan.
+     * @param {object} p - postingan
+     * @returns {boolean}
+     */
+    function bisaSelesai(p) {
+      return p.kategori === 'donasi' || p.kategori === 'tukar';
+    }
+
+    /* ---------- MODUL FEED (TAMPILAN) ---------- */
+
+    const Feed = {
+      /** Kategori filter aktif ('' = semua). */
+      kategoriAktif: '',
+      /** Id postingan yang kolom komentarnya sedang terbuka. */
+      terbuka: new Set(),
+
+      /** HTML tombol dukungan (dipisah agar bisa diperbarui tanpa menggambar ulang kartu). */
+      htmlLike(p) {
+        const aktif = Data.sukai.includes(p.id);
+        return `<button type="button" data-aksi="like" aria-pressed="${aktif}" class="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg ${aktif ? 'bg-panen/40' : 'hover:bg-tua/5'}">
+          <i data-lucide="heart" class="w-4 h-4 ${aktif ? 'text-red-600 fill-current' : ''}"></i> ${aktif ? 'Didukung' : 'Dukung'} · ${p.like}</button>`;
+      },
+
+      /**
+       * HTML satu kartu postingan lengkap dengan panel komentar.
+       * @param {object} p - data postingan
+       * @returns {string} HTML kartu
+       */
+      htmlPost(p) {
+        const k = KATEGORI[p.kategori] || KATEGORI.tanya;
+        const buka = this.terbuka.has(p.id);
+        const komentar = p.komentar.length
+          ? p.komentar.map(c => `
+              <li class="bg-krem rounded-xl p-3 text-sm">
+                <p><strong>${Util.esc(c.nama)}</strong> <span class="text-xs text-tua/50">· ${Util.waktuLalu(c.waktu)}</span></p>
+                <p class="mt-1 text-tua/80 leading-relaxed">${Util.escBaris(c.isi)}</p>
+              </li>`).join('')
+          : '<li class="text-sm text-tua/60">Belum ada komentar. Jadilah yang pertama membalas.</li>';
+
+        return `
+          <article data-post="${p.id}" class="bg-white border border-tua/10 rounded-2xl p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <span class="w-10 h-10 rounded-full bg-segar/20 grid place-items-center font-extrabold">${Util.esc((p.nama.trim()[0] || '?').toUpperCase())}</span>
+                <div><p class="font-bold leading-tight">${Util.esc(p.nama)}</p><p class="text-xs text-tua/50">${Util.waktuLalu(p.waktu)}${p.diedit ? ' · diedit' : ''}</p></div>
+              </div>
+              <div class="flex flex-col items-end gap-1.5">
+                <span class="inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap ${k.badge}"><i data-lucide="${k.ikon}" class="w-3.5 h-3.5"></i> ${k.label}</span>
+                ${p.selesai && bisaSelesai(p) ? '<span class="inline-flex items-center text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap bg-green-100 text-green-800">✓ Sudah Diambil / Selesai</span>' : ''}
+              </div>
+            </div>
+            <h3 class="mt-4 text-lg font-bold leading-snug">${Util.esc(p.judul)}</h3>
+            <p class="mt-2 text-sm text-tua/80 leading-relaxed">${Util.escBaris(p.isi)}</p>
+            ${NusaPangan.Foto.aman(p.foto) ? `<img src="${p.foto}" alt="Foto postingan ${Util.esc(p.judul)}" class="mt-3 w-full max-h-80 object-cover rounded-xl border border-tua/10" />` : ''}
+
+            <div class="mt-4 pt-3 border-t border-tua/10 flex flex-wrap items-center gap-1">
+              <span data-slot="like">${this.htmlLike(p)}</span>
+              <button type="button" data-aksi="toggle" aria-expanded="${buka}" class="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-tua/5">
+                <i data-lucide="message-circle" class="w-4 h-4"></i> <span data-slot="jumlah-komentar">${p.komentar.length}</span> Komentar
+              </button>
+              ${bolehUbah(p) ? `<span class="ml-auto inline-flex flex-wrap justify-end gap-1">
+                ${bisaSelesai(p) ? `<button type="button" data-aksi="selesai" aria-pressed="${!!p.selesai}" class="inline-flex items-center gap-1.5 text-sm font-semibold ${p.selesai ? 'text-tua/60 hover:bg-tua/5' : 'bg-segar/15 text-tua hover:bg-segar/25'} px-3 py-1.5 rounded-lg" aria-label="${p.selesai ? 'Buka kembali' : 'Tandai sudah diambil'}: ${Util.esc(p.judul)}"><i data-lucide="${p.selesai ? 'rotate-ccw' : 'check-circle-2'}" class="w-4 h-4"></i> ${p.selesai ? 'Buka kembali' : 'Tandai sudah diambil'}</button>` : ''}
+                <button type="button" data-aksi="edit" class="inline-flex items-center gap-1.5 text-sm font-semibold text-tua/60 px-3 py-1.5 rounded-lg hover:bg-tua/5" aria-label="Edit postingan ${Util.esc(p.judul)}"><i data-lucide="pencil" class="w-4 h-4"></i> Edit</button>
+                <button type="button" data-aksi="hapus" class="inline-flex items-center gap-1.5 text-sm font-semibold text-tua/60 px-3 py-1.5 rounded-lg hover:bg-tua/5" aria-label="Hapus postingan ${Util.esc(p.judul)}"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus</button>
+              </span>` : ''}
+            </div>
+
+            <div data-panel class="${buka ? '' : 'hidden'} mt-3">
+              <ul class="space-y-2">${komentar}</ul>
+              <form data-form-komentar="${p.id}" class="mt-3 grid sm:grid-cols-5 gap-2" novalidate>
+                <input type="text" name="nama" readonly value="${Util.esc(Akun.namaAktif())}" placeholder="Belum masuk" aria-label="Nama penulis (dari akun aktif)" class="isian sm:col-span-2" />
+                <input type="text" name="isi" maxlength="300" placeholder="Tulis balasan…" aria-label="Tulis balasan" class="isian sm:col-span-3" />
+                <p data-galat class="sm:col-span-5 text-sm text-red-700 hidden" role="alert"></p>
+                <button type="submit" class="sm:col-span-5 inline-flex justify-center items-center gap-2 bg-segar text-white text-sm font-bold px-4 py-2 rounded-xl hover:brightness-110"><i data-lucide="corner-down-right" class="w-4 h-4"></i> Kirim balasan</button>
+              </form>
+            </div>
+          </article>`;
+      },
+
+      /** Menyaring postingan sesuai kata kunci dan kategori, urut terbaru di atas. */
+      saring() {
+        const kata = document.getElementById('cari').value.trim().toLowerCase();
+        return Data.posts
+          .filter(p => (!this.kategoriAktif || p.kategori === this.kategoriAktif) &&
+                       (!kata || (p.judul + ' ' + p.isi).toLowerCase().includes(kata)))
+          .sort((a, b) => b.waktu - a.waktu);
+      },
+
+      /** Menggambar chip filter beserta jumlah postingan per kategori. */
+      renderChip() {
+        const hitung = k => Data.posts.filter(p => p.kategori === k).length;
+        const chip = (nilai, label, n) => {
+          const aktif = this.kategoriAktif === nilai;
+          return `<button type="button" data-kat="${nilai}" aria-pressed="${aktif}" class="px-4 py-1.5 rounded-full border ${aktif ? 'bg-tua text-white border-tua' : 'border-tua/20 hover:bg-tua/5'}">${label} (${n})</button>`;
+        };
+        document.getElementById('chip-kategori').innerHTML =
+          chip('', 'Semua', Data.posts.length) +
+          Object.entries(KATEGORI).map(([k, v]) => chip(k, v.label, hitung(k))).join('');
+      },
+
+      /** Menggambar ulang seluruh feed, chip filter, dan penghitung hasil. */
+      render() {
+        this.renderChip();
+        const hasil = this.saring();
+        const totalKomentar = Data.posts.reduce((n, p) => n + p.komentar.length, 0);
+        document.getElementById('jumlah-hasil').textContent =
+          `Menampilkan ${hasil.length} dari ${Data.posts.length} postingan · ${totalKomentar} komentar`;
+
+        document.getElementById('feed').innerHTML = hasil.length
+          ? hasil.map(p => this.htmlPost(p)).join('')
+          : `<div class="bg-white border border-dashed border-tua/20 rounded-2xl p-8 text-center text-sm text-tua/60">${
+              Data.posts.length ? 'Tidak ada postingan yang cocok. Coba ubah kata kunci atau kategori.' : 'Belum ada postingan. Jadilah yang pertama berbagi!'}</div>`;
+        lucide.createIcons();
+      },
+
+      /**
+       * Menggambar ulang SATU kartu saja (agar isian di kartu lain tidak hilang).
+       * @param {string} id - id postingan
+       */
+      renderSatu(id) {
+        const el = document.querySelector(`[data-post="${id}"]`);
+        const p = Data.cari(id);
+        if (el && p) { el.outerHTML = this.htmlPost(p); lucide.createIcons(); }
+        document.getElementById('jumlah-hasil').textContent = document.getElementById('jumlah-hasil').textContent.replace(/· \d+ komentar/, `· ${Data.posts.reduce((n, x) => n + x.komentar.length, 0)} komentar`);
+      }
+    };
+
+    /* ---------- FITUR 1: MEMBUAT & MENGEDIT POSTINGAN ---------- */
+
+    /**
+     * Form postingan: membuat postingan baru ATAU mengedit postingan sendiri.
+     * Nama penulis diambil otomatis dari akun yang sedang masuk (NusaPangan.Akun).
+     */
+    const Form = {
+      /** Pengendali unggah foto (NusaPangan.Foto.pasang di app.js). */
+      foto: null,
+
+      /** @returns {string} id postingan yang sedang diedit, atau '' bila mode buat baru. */
+      idEdit() { return document.getElementById('in-edit-id').value; },
+
+      /** Menampilkan nama akun aktif di kolom penulis dan menyesuaikan tombol akun. */
+      sinkronAkun() {
+        const a = Akun.aktif();
+        document.getElementById('in-nama').value = a ? a.nama : '';
+        document.getElementById('btn-akun-form').textContent = a ? 'Ganti akun' : 'Masuk';
+      },
+
+      /** Menampilkan/menyembunyikan pesan galat form. @param {string} pesan */
+      tampilkanGalat(pesan) {
+        const g = document.getElementById('galat-post');
+        g.textContent = pesan;
+        g.classList.toggle('hidden', !pesan);
+      },
+
+      /**
+       * Memvalidasi form lalu membuat postingan baru (di paling atas feed)
+       * atau menyimpan hasil edit. Bila LocalStorage penuh, perubahan dibatalkan.
+       * @param {Event} e - event submit
+       */
+      kirim(e) {
+        e.preventDefault();
+        const akun = Akun.pastikanMasuk('Masuk dulu untuk membuat atau mengedit postingan.');
+        if (!akun) return;
+
+        const kategori = document.getElementById('in-kategori').value;
+        const judul = document.getElementById('in-judul').value.trim();
+        const isi = document.getElementById('in-isi').value.trim();
+        const idEdit = this.idEdit();
+
+        let pesan = '';
+        if (judul.length < 5) pesan = 'Judul minimal 5 karakter.';
+        else if (isi.length < 10) pesan = 'Isi postingan minimal 10 karakter.';
+        else if (this.foto.sedangProses()) pesan = 'Foto masih diproses, tunggu sebentar.';
+        if (pesan) { this.tampilkanGalat(pesan); return; }
+        this.tampilkanGalat('');
+
+        const foto = this.foto.ambil();
+        const penuh = 'Penyimpanan penuh. Pilih foto yang lebih kecil atau hapus postingan lama.';
+
+        if (idEdit) {
+          // --- MODE EDIT ---
+          const i = Data.posts.findIndex(x => x.id === idEdit);
+          const lama = Data.posts[i];
+          if (!lama || !bolehUbah(lama)) { this.tampilkanGalat('Anda tidak berhak mengedit postingan ini.'); return; }
+          Data.posts[i] = Object.assign({}, lama, { kategori, judul, isi, foto, diedit: Date.now(), selesai: (kategori === 'donasi' || kategori === 'tukar') ? !!lama.selesai : false });
+          if (!Data.simpan()) { Data.posts[i] = lama; this.tampilkanGalat(penuh); return; }
+          this.selesaiEdit();
+          Util.toast('Postingan diperbarui');
+        } else {
+          // --- MODE BUAT BARU ---
+          Data.posts.unshift({ id: Util.id(), nama: akun.nama, penulisId: akun.id, kategori, judul, isi, foto, waktu: Date.now(), like: 0, milik: true, selesai: false, komentar: [] });
+          if (!Data.simpan()) { Data.posts.shift(); this.tampilkanGalat(penuh); return; }
+          document.getElementById('in-judul').value = '';
+          document.getElementById('in-isi').value = '';
+          this.foto.reset();
+          Util.toast('Postingan terkirim!');
+        }
+
+        // Reset pencarian/filter agar postingan pasti terlihat
+        document.getElementById('cari').value = '';
+        Feed.kategoriAktif = '';
+        Feed.render();
+        if (window.matchMedia('(max-width: 767px)').matches) document.getElementById('toolbar').scrollIntoView({ behavior: 'smooth' });
+      },
+
+      /**
+       * Mengisi form dengan data postingan milik sendiri untuk diedit.
+       * @param {string} id - id postingan
+       */
+      mulaiEdit(id) {
+        const p = Data.cari(id);
+        if (!p || !bolehUbah(p)) { Util.toast('Hanya penulis yang dapat mengedit postingan ini'); return; }
+        document.getElementById('in-edit-id').value = id;
+        document.getElementById('in-kategori').value = p.kategori;
+        document.getElementById('in-judul').value = p.judul;
+        document.getElementById('in-isi').value = p.isi;
+        this.foto.atur(p.foto);
+        this.tampilkanGalat('');
+        document.getElementById('judul-form').textContent = 'Edit postingan';
+        document.getElementById('teks-kirim').textContent = 'Simpan perubahan';
+        document.getElementById('btn-batal-edit').classList.remove('hidden');
+        document.getElementById('form-post').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('in-judul').focus({ preventScroll: true });
+      },
+
+      /** Keluar dari mode edit: kosongkan form dan kembalikan judul/tombol seperti semula. */
+      selesaiEdit() {
+        document.getElementById('in-edit-id').value = '';
+        document.getElementById('in-judul').value = '';
+        document.getElementById('in-isi').value = '';
+        this.foto.reset();
+        this.tampilkanGalat('');
+        document.getElementById('judul-form').textContent = 'Mulai diskusi atau ajukan pertanyaan';
+        document.getElementById('teks-kirim').textContent = 'Kirim postingan';
+        document.getElementById('btn-batal-edit').classList.add('hidden');
+      },
+
+      /** Mengisi form otomatis dari stok Food Rescue yang hampir kedaluwarsa (kurang dari 7 hari). */
+      isiDariStok() {
+        const stok = Penyimpanan.ambil('stokPangan', []);
+        const dekat = (Array.isArray(stok) ? stok : [])
+          .map(s => ({ ...s, sisa: Util.sisaHari(s.exp) }))
+          .filter(s => s.sisa >= 0 && s.sisa < 7)
+          .sort((a, b) => a.sisa - b.sisa)
+          .slice(0, 4);
+
+        if (!dekat.length) { Util.toast('Tidak ada bahan hampir kedaluwarsa di stok Food Rescue'); return; }
+        document.getElementById('in-kategori').value = 'donasi';
+        document.getElementById('in-judul').value = 'Berbagi bahan pangan sebelum kedaluwarsa';
+        document.getElementById('in-isi').value = 'Saya punya bahan yang perlu segera diolah: ' +
+          dekat.map(s => `${s.jumlah} ${s.satuan} ${s.nama} (${s.sisa === 0 ? 'hari ini' : s.sisa + ' hari lagi'})`).join(', ') +
+          '. Siapa yang mau ambil? Balas di komentar.';
+        Util.toast('Form terisi dari stok kulkas. Periksa lalu kirim.');
+      },
+
+      /** Mengisi pilihan kategori, memasang pengunggah foto, dan semua event form. */
+      init() {
+        document.getElementById('in-kategori').innerHTML = Object.entries(KATEGORI).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+        this.foto = NusaPangan.Foto.pasang({ input: 'in-foto', pratinjau: 'pratinjau-foto', gambar: 'img-foto', hapus: 'hapus-foto', galat: 'galat-foto', maxSisi: 900, kualitas: 0.72, maxKarakter: 320000 });
+        this.sinkronAkun();
+
+        document.getElementById('form-post').addEventListener('submit', e => this.kirim(e));
+        document.getElementById('btn-isi-stok').addEventListener('click', () => this.isiDariStok());
+        document.getElementById('btn-akun-form').addEventListener('click', () => Akun.buka());
+        document.getElementById('btn-batal-edit').addEventListener('click', () => this.selesaiEdit());
+
+        // Akun berganti (login/keluar/edit profil): perbarui nama penulis, tombol edit/hapus, dan form
+        window.addEventListener('nusapangan:akun', () => {
+          Data.segarkan();
+          this.sinkronAkun();
+          const sedangEdit = this.idEdit() && Data.cari(this.idEdit());
+          if (this.idEdit() && !(sedangEdit && bolehUbah(sedangEdit))) this.selesaiEdit();
+          Feed.render();
+        });
+      }
+    };
+
+    /* ---------- FITUR 2 & 4: KOMENTAR, LIKE, HAPUS ---------- */    /* ---------- FITUR 2 & 4: KOMENTAR, LIKE, HAPUS ---------- */
+
+    const Interaksi = {
+      /**
+       * Menambah komentar dari form balasan di kartu postingan.
+       * @param {HTMLFormElement} form - form komentar (data-form-komentar = id postingan)
+       */
+      komentar(form) {
+        const id = form.dataset.formKomentar;
+        const p = Data.cari(id);
+        const akun = Akun.pastikanMasuk('Masuk dulu untuk membalas komentar.');
+        if (!akun) return;
+        const isi = form.elements.isi.value.trim();
+        const galat = form.querySelector('[data-galat]');
+        if (!p) return;
+
+        if (isi.length < 2) {
+          galat.textContent = 'Balasan minimal 2 karakter.';
+          galat.classList.remove('hidden');
+          return;
+        }
+        // Nama penulis komentar = akun yang sedang masuk
+        p.komentar.push({ id: Util.id(), nama: akun.nama, penulisId: akun.id, isi, waktu: Date.now() });
+        if (!Data.simpan()) {
+          p.komentar.pop();
+          galat.textContent = 'Penyimpanan penuh. Hapus postingan lama lalu coba lagi.';
+          galat.classList.remove('hidden');
+          return;
+        }
+        Feed.terbuka.add(id);
+        Feed.renderSatu(id);
+        // Pindahkan fokus ke kolom balasan agar pengguna bisa langsung membalas lagi
+        const input = document.querySelector(`[data-form-komentar="${id}"] [name="isi"]`);
+        if (input) input.focus();
+        Util.toast('Balasan terkirim');
+      },
+
+      /** Mendukung/membatalkan dukungan pada postingan (satu kali per pengguna). */
+      like(id) {
+        const p = Data.cari(id);
+        if (!p) return;
+        const i = Data.sukai.indexOf(id);
+        if (i >= 0) { Data.sukai.splice(i, 1); p.like = Math.max(0, p.like - 1); }
+        else { Data.sukai.push(id); p.like += 1; }
+        Data.simpan();
+        const slot = document.querySelector(`[data-post="${id}"] [data-slot="like"]`);
+        if (slot) { slot.innerHTML = Feed.htmlLike(p); lucide.createIcons(); }
+      },
+
+      /**
+       * Menandai donasi/tukar sudah diambil (atau membukanya kembali). Hanya untuk pemilik
+       * postingan berkategori donasi atau tukar.
+       * @param {string} id - id postingan
+       */
+      selesai(id) {
+        const p = Data.cari(id);
+        if (!p || !bolehUbah(p) || !bisaSelesai(p)) return;
+        const lama = !!p.selesai;
+        p.selesai = !lama;
+        if (!Data.simpan()) { p.selesai = lama; Util.toast('Penyimpanan penuh. Hapus postingan lama lalu coba lagi.'); return; }
+        Feed.renderSatu(id);
+        const b = document.querySelector(`[data-post="${id}"] [data-aksi="selesai"]`);
+        if (b) b.focus(); // kembalikan fokus keyboard setelah kartu digambar ulang
+        Util.toast(p.selesai ? 'Ditandai sudah diambil' : 'Postingan dibuka kembali');
+      },
+
+      /** Membuka/menutup panel komentar. */
+      toggle(id, artikel) {
+        const panel = artikel.querySelector('[data-panel]');
+        const tombol = artikel.querySelector('[data-aksi="toggle"]');
+        const buka = panel.classList.toggle('hidden') === false;
+        tombol.setAttribute('aria-expanded', String(buka));
+        if (buka) Feed.terbuka.add(id); else Feed.terbuka.delete(id);
+      },
+
+      /** Menghapus postingan milik sendiri setelah konfirmasi. */
+      hapus(id) {
+        const p = Data.cari(id);
+        if (!p || !bolehUbah(p) || !confirm('Hapus postingan ini beserta semua komentarnya?')) return;
+        if (Form.idEdit() === id) Form.selesaiEdit();
+        Data.posts = Data.posts.filter(x => x.id !== id);
+        Data.sukai = Data.sukai.filter(x => x !== id);
+        Feed.terbuka.delete(id);
+        Data.simpan();
+        Feed.render();
+        Util.toast('Postingan dihapus');
+      },
+
+      /** Memasang delegasi event pada feed (satu listener untuk semua kartu). */
+      init() {
+        const feed = document.getElementById('feed');
+        feed.addEventListener('click', e => {
+          const b = e.target.closest('[data-aksi]');
+          if (!b) return;
+          const artikel = b.closest('[data-post]');
+          const id = artikel.dataset.post;
+          if (b.dataset.aksi === 'like') this.like(id);
+          else if (b.dataset.aksi === 'toggle') this.toggle(id, artikel);
+          else if (b.dataset.aksi === 'selesai') this.selesai(id);
+          else if (b.dataset.aksi === 'edit') Form.mulaiEdit(id);
+          else if (b.dataset.aksi === 'hapus') this.hapus(id);
+        });
+        feed.addEventListener('submit', e => {
+          const form = e.target.closest('[data-form-komentar]');
+          if (form) { e.preventDefault(); this.komentar(form); }
+        });
+      }
+    };
+
+    /* ---------- FITUR 3: PENCARIAN & FILTER ---------- */
+
+    const Pencarian = {
+      init() {
+        // Pencarian real-time: dijalankan setiap kali pengguna mengetik
+        document.getElementById('cari').addEventListener('input', () => Feed.render());
+        document.getElementById('chip-kategori').addEventListener('click', e => {
+          const c = e.target.closest('[data-kat]');
+          if (c) { Feed.kategoriAktif = c.dataset.kat; Feed.render(); }
+        });
+      }
+    };
+
+    /* ---------- TITIK MASUK ---------- */
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tahun').textContent = new Date().getFullYear();
+      Navigasi.init();
+      Data.muat();
+      Form.init();
+      Interaksi.init();
+      Pencarian.init();
+      Feed.render();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas
+  Halaman  : nutrisi.html (Nutrisi & Ketahanan Gizi Keluarga)
+  Fitur    : 1) Resep dari stok kulkas (membaca data foodrescue.html)
+             2) Kalkulator gizi keluarga harian (progress bar)
+             3) Pencarian resep sehat & hemat (budget / gizi)
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nutrisi — NusaPangan</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="Resep dari bahan yang hampir kedaluwarsa, kalkulator gizi keluarga, dan pencarian resep hemat." />
+
+  <!-- Font, Tailwind, dan ikon: sama persis dengan halaman lain -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Tema warna NusaPangan (harus sama di semua halaman) */
+    tailwind.config = {
+      theme: { extend: {
+        colors: { tua: '#1B4332', segar: '#40916C', krem: '#F8F9FA', panen: '#F4A261' },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+      } }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+    /* Gaya bersama untuk kolom isian */
+    .isian { width: 100%; border: 1px solid rgba(27,67,50,.2); background: #fff; border-radius: .75rem; padding: .6rem .9rem; font-size: .875rem; }
+  </style>
+  <!-- Modul bersama NusaPangan: tombol mode gelap & animasi -->
+  <script src="app.js"></script>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam di semua halaman) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center"> <img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a data-nav="index.html"       href="index.html"       class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a data-nav="farming.html"     href="farming.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a data-nav="komunitas.html"   href="komunitas.html"   class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-tua/5">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a data-nav="index.html"       href="index.html"       class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a data-nav="farming.html"     href="farming.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a data-nav="komunitas.html"   href="komunitas.html"   class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+
+  <main>
+    <!-- ===================== HEADER HALAMAN ===================== -->
+    <section class="bg-tua pola-titik text-white">
+      <div class="max-w-6xl mx-auto px-4 py-14 md:py-20">
+        <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/10 rounded-full px-3 py-1 mb-5">
+          <i data-lucide="apple" class="w-4 h-4 text-panen"></i> Nutrisi Keluarga
+        </p>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight max-w-3xl">Gizi cukup, kantong aman, tidak ada yang terbuang.</h1>
+        <p class="mt-4 text-lg text-white/80 max-w-2xl leading-relaxed">Masak dari bahan yang ada di kulkas, lalu cek apakah gizi keluarga hari ini sudah terpenuhi.</p>
+      </div>
+    </section>
+
+    <!-- ===================== FITUR 1: RESEP DARI STOK KULKAS ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pt-14" id="rekomendasi">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-3xl font-extrabold">Resep dari stok kulkasmu</h2>
+          <p class="mt-2 text-tua/70 max-w-2xl">Resep yang memakai bahan paling dekat kedaluwarsa tampil paling atas. Data dibaca dari halaman Food Rescue.</p>
+        </div>
+        <a href="foodrescue.html" class="inline-flex items-center gap-2 text-sm font-bold border border-tua/20 px-4 py-2 rounded-xl hover:bg-tua/5"><i data-lucide="refrigerator" class="w-4 h-4"></i> Kelola stok</a>
+      </div>
+      <div id="info-kulkas" class="mt-5" aria-live="polite"></div>
+      <div id="grid-rekomendasi" class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ===================== FITUR 2: KALKULATOR GIZI KELUARGA ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pt-16 scroll-mt-16" id="kalkulator">
+      <h2 class="text-3xl font-extrabold">Kalkulator gizi keluarga harian</h2>
+      <p class="mt-2 text-tua/70 max-w-2xl">Isi jumlah anggota keluarga dan pilih menu hari ini. Setiap menu dihitung sebagai satu porsi per orang.</p>
+
+      <div class="mt-6 grid md:grid-cols-5 gap-6">
+        <!-- Kiri: input keluarga & pilihan menu -->
+        <div class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-6 self-start">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="in-dewasa" class="block text-sm font-semibold mb-1">Dewasa</label>
+              <input id="in-dewasa" type="number" min="1" max="10" value="2" class="isian" />
+            </div>
+            <div>
+              <label for="in-anak" class="block text-sm font-semibold mb-1">Anak-anak</label>
+              <input id="in-anak" type="number" min="0" max="10" value="2" class="isian" />
+            </div>
+          </div>
+          <div class="mt-5 flex items-center justify-between">
+            <p class="text-sm font-semibold">Menu hari ini</p>
+            <button id="btn-kosong" type="button" class="text-sm font-semibold text-segar hover:underline">Kosongkan menu</button>
+          </div>
+          <div id="chip-menu" class="mt-2 flex flex-wrap gap-2 text-xs font-semibold" role="group" aria-label="Pilih menu"></div>
+        </div>
+
+        <!-- Kanan: hasil progress bar -->
+        <div class="md:col-span-3 bg-white border border-tua/10 rounded-3xl p-6">
+          <div id="bar-gizi" class="space-y-5"></div>
+          <div id="status-gizi" class="mt-6 text-sm font-semibold" aria-live="polite"></div>
+          <div id="saran-gizi" class="mt-2 text-sm text-tua/70"></div>
+          <p id="biaya-gizi" class="mt-4 pt-4 border-t border-tua/10 text-sm text-tua/70"></p>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-tua/50">Target harian per orang (perkiraan, mengacu pada angka kecukupan gizi umum): dewasa 2.100 kkal, 60 g protein, 30 g serat, 75 mg vitamin C; anak 1.650 kkal, 40 g protein, 22 g serat, 45 mg vitamin C. Porsi anak dihitung 0,6 porsi dewasa. Nilai gizi resep adalah perkiraan.</p>
+    </section>
+
+    <!-- ===================== FITUR 3: PENCARIAN RESEP ===================== -->
+    <section class="max-w-6xl mx-auto px-4 py-16" id="resep">
+      <h2 class="text-3xl font-extrabold">Cari resep sehat & hemat</h2>
+      <p class="mt-2 text-tua/70">Cari berdasarkan nama atau bahan, batasi budget per porsi, atau pilih fokus gizi.</p>
+
+      <div class="mt-6 grid md:grid-cols-4 gap-3 bg-white border border-tua/10 rounded-2xl p-4">
+        <div class="md:col-span-2 relative">
+          <label for="cari-resep" class="sr-only">Cari resep</label>
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-tua/40"></i>
+          <input id="cari-resep" type="search" placeholder="Cari nama resep atau bahan…" class="isian pl-9" />
+        </div>
+        <div>
+          <label for="filter-budget" class="sr-only">Budget per porsi</label>
+          <select id="filter-budget" class="isian">
+            <option value="">Semua budget</option>
+            <option value="4000">Maks. Rp 4.000 / porsi</option>
+            <option value="6000">Maks. Rp 6.000 / porsi</option>
+            <option value="8000">Maks. Rp 8.000 / porsi</option>
+            <option value="10000">Maks. Rp 10.000 / porsi</option>
+          </select>
+        </div>
+        <div>
+          <label for="filter-fokus" class="sr-only">Fokus gizi</label>
+          <select id="filter-fokus" class="isian">
+            <option value="">Semua kandungan gizi</option>
+            <option value="protein">Tinggi protein (12 g atau lebih)</option>
+            <option value="serat">Tinggi serat (6 g atau lebih)</option>
+            <option value="vitc">Tinggi vitamin C (25 mg atau lebih)</option>
+            <option value="rendahkal">Rendah kalori (150 kkal atau kurang)</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between text-sm">
+        <p id="jumlah-resep" class="text-tua/60" aria-live="polite"></p>
+        <button id="btn-reset-cari" type="button" class="font-semibold text-segar hover:underline">Atur ulang filter</button>
+      </div>
+      <div id="hasil-resep" class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+  </main>
+
+  <!-- Notifikasi singkat (toast) -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-tua text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl hidden z-50" role="status"></div>
+
+  <!-- ===================== FOOTER (seragam) ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Proyek</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- ===================== JAVASCRIPT MODULAR ===================== -->
+  <script>
+    'use strict';
+
+    /* ---------- DATA & KONFIGURASI ---------- */
+
+    /**
+     * Basis data resep (nilai gizi PER PORSI, berupa perkiraan).
+     * - bahan  : kata kunci untuk dicocokkan dengan nama bahan di stok kulkas
+     * - tampil : daftar bahan yang ditampilkan ke pengguna
+     * - kal (kkal), prot (g), serat (g), vitc (mg), harga (Rp per porsi)
+     */
+    const RESEP = [
+      { id: 'sayurbening', nama: 'Sayur Bening Bayam Jagung', bahan: ['bayam', 'jagung', 'wortel'], tampil: 'Bayam, jagung manis, wortel, bawang putih', kal: 90, prot: 4, serat: 4, vitc: 30, harga: 3500, langkah: 'Rebus air dengan bawang putih, masukkan jagung dan wortel hingga empuk. Masukkan bayam, angkat setelah 1 menit.' },
+      { id: 'tumiskangkung', nama: 'Tumis Kangkung Bawang', bahan: ['kangkung', 'bawang'], tampil: 'Kangkung, bawang putih, cabai', kal: 110, prot: 3, serat: 4, vitc: 35, harga: 3000, langkah: 'Tumis bawang putih dan cabai, masukkan kangkung, beri garam, masak 2 menit dengan api besar.' },
+      { id: 'tempeorek', nama: 'Tempe Orek Kecap', bahan: ['tempe'], tampil: 'Tempe, kecap, bawang, cabai', kal: 210, prot: 14, serat: 4, vitc: 1, harga: 3500, langkah: 'Potong tempe kecil-kecil, goreng setengah kering. Tumis bumbu, campur tempe dan kecap hingga meresap.' },
+      { id: 'dadarsayur', nama: 'Telur Dadar Sayur', bahan: ['telur', 'wortel', 'bayam', 'daun bawang'], tampil: 'Telur, wortel, bayam, daun bawang', kal: 180, prot: 12, serat: 2, vitc: 8, harga: 4000, langkah: 'Kocok telur dengan irisan sayur dan garam, goreng dengan sedikit minyak hingga matang kedua sisi.' },
+      { id: 'sopayam', nama: 'Sup Ayam Wortel Kentang', bahan: ['ayam', 'wortel', 'kentang', 'seledri'], tampil: 'Ayam, wortel, kentang, seledri', kal: 260, prot: 22, serat: 4, vitc: 12, harga: 9000, langkah: 'Rebus ayam hingga kaldu keluar, masukkan kentang dan wortel, bumbui, tambahkan seledri sebelum diangkat.' },
+      { id: 'nasigoreng', nama: 'Nasi Goreng Sayur Telur', bahan: ['nasi', 'beras', 'telur', 'wortel', 'sawi'], tampil: 'Nasi, telur, sawi, wortel', kal: 420, prot: 14, serat: 3, vitc: 6, harga: 6000, langkah: 'Tumis bawang, orak-arik telur, masukkan sayur lalu nasi dan kecap. Aduk hingga rata.' },
+      { id: 'smoothie', nama: 'Smoothie Pisang Susu', bahan: ['pisang', 'susu'], tampil: 'Pisang, susu, es batu', kal: 220, prot: 7, serat: 3, vitc: 9, harga: 5000, langkah: 'Blender pisang matang dengan susu dan es batu hingga halus.' },
+      { id: 'pancake', nama: 'Pancake Pisang Telur', bahan: ['pisang', 'telur', 'susu'], tampil: 'Pisang, telur, tepung, susu', kal: 280, prot: 9, serat: 2, vitc: 5, harga: 4500, langkah: 'Lumatkan pisang, campur telur, tepung, dan susu. Panggang sendok demi sendok di teflon anti lengket.' },
+      { id: 'tumistahu', nama: 'Tumis Tahu Sawi Tomat', bahan: ['tahu', 'sawi', 'tomat'], tampil: 'Tahu, sawi, tomat, bawang', kal: 190, prot: 13, serat: 3, vitc: 28, harga: 4500, langkah: 'Goreng tahu sebentar, tumis bawang dan tomat, masukkan sawi dan tahu, masak hingga layu.' },
+      { id: 'ayamsuwir', nama: 'Ayam Suwir Bumbu Kuning', bahan: ['ayam'], tampil: 'Ayam, kunyit, bawang, serai', kal: 240, prot: 24, serat: 1, vitc: 3, harga: 8500, langkah: 'Rebus ayam lalu suwir. Tumis bumbu halus dan serai, masukkan ayam, masak hingga bumbu menyusut.' },
+      { id: 'urap', nama: 'Urap Sayur Kelapa', bahan: ['kacang panjang', 'bayam', 'tauge', 'kelapa'], tampil: 'Kacang panjang, bayam, tauge, kelapa parut', kal: 150, prot: 5, serat: 7, vitc: 22, harga: 3500, langkah: 'Kukus semua sayur sebentar. Campur dengan kelapa parut berbumbu (kencur, bawang, cabai).' },
+      { id: 'buburubi', nama: 'Bubur Ubi Jalar Susu', bahan: ['ubi', 'susu'], tampil: 'Ubi jalar, susu, gula aren', kal: 230, prot: 6, serat: 5, vitc: 22, harga: 3000, langkah: 'Rebus ubi hingga empuk, lumatkan kasar, masak dengan susu dan gula aren hingga mengental.' },
+      { id: 'sayurasem', nama: 'Sayur Asem', bahan: ['jagung', 'kacang panjang', 'labu', 'tomat'], tampil: 'Jagung, kacang panjang, labu, tomat, asam jawa', kal: 100, prot: 3, serat: 6, vitc: 28, harga: 3500, langkah: 'Rebus bumbu halus dan asam jawa, masukkan sayur dari yang paling keras. Masak hingga semua empuk.' },
+      { id: 'gadogado', nama: 'Gado-gado Lengkap', bahan: ['kacang panjang', 'kol', 'tauge', 'tahu', 'tempe', 'telur'], tampil: 'Aneka sayur rebus, tahu, tempe, telur, bumbu kacang', kal: 400, prot: 18, serat: 10, vitc: 30, harga: 8000, langkah: 'Rebus sayur dan telur, goreng tahu dan tempe. Susun di piring, siram bumbu kacang.' },
+      { id: 'singkong', nama: 'Singkong Rebus Sambal Tomat', bahan: ['singkong', 'tomat'], tampil: 'Singkong, tomat, cabai, bawang', kal: 250, prot: 2, serat: 4, vitc: 20, harga: 2500, langkah: 'Rebus singkong hingga empuk. Ulek tomat, cabai, dan bawang sebagai sambal, sajikan hangat.' }
+    ];
+
+    /** Definisi 4 zat gizi yang dihitung: kunci data, label, dan satuan. */
+    const NUTRISI = [
+      { k: 'kal',   label: 'Kalori',          sat: 'kkal' },
+      { k: 'prot',  label: 'Protein',         sat: 'g' },
+      { k: 'serat', label: 'Serat',           sat: 'g' },
+      { k: 'vitc',  label: 'Vitamin (C)',     sat: 'mg' }
+    ];
+
+    /** Target gizi harian per orang (perkiraan). */
+    const TARGET = {
+      dewasa: { kal: 2100, prot: 60, serat: 30, vitc: 75 },
+      anak:   { kal: 1650, prot: 40, serat: 22, vitc: 45 }
+    };
+
+    /** Porsi anak dihitung sebagai 0,6 porsi dewasa. */
+    const PORSI_ANAK = 0.6;
+
+    /** Batas hari status stok (sama dengan foodrescue.html). */
+    const BATAS_MERAH = 3;
+    const BATAS_KUNING = 7;
+
+    /* ---------- MODUL UTILITAS ---------- */
+
+    /** Pembungkus LocalStorage aman (sama dengan halaman lain). */
+    const Penyimpanan = {
+      awalan: 'nusapangan:',
+      /** Mengambil data; mengembalikan `cadangan` bila kosong/rusak. */
+      ambil(kunci, cadangan) {
+        try { const m = localStorage.getItem(this.awalan + kunci); return m === null ? cadangan : JSON.parse(m); }
+        catch (e) { return cadangan; }
+      },
+      /** Menyimpan data (otomatis diubah ke JSON). @returns {boolean} false bila penyimpanan penuh/diblokir. */
+      simpan(kunci, nilai) {
+        try { localStorage.setItem(this.awalan + kunci, JSON.stringify(nilai)); return true; } catch (e) { return false; /* penyimpanan penuh/diblokir */ }
+      }
+    };
+
+    /** Fungsi bantu umum. */
+    const Util = {
+      /** Mengamankan teks dari penyisipan HTML (mencegah XSS). */
+      esc(teks) { const d = document.createElement('div'); d.textContent = teks; return d.innerHTML; },
+      /** Tanggal hari ini + n hari, format YYYY-MM-DD (zona waktu lokal). */
+      tanggal(n = 0) { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); },
+      /** Selisih hari antara hari ini dan tanggal exp (negatif bila sudah lewat). */
+      sisaHari(exp) {
+        return Math.round((new Date(exp + 'T00:00:00') - new Date(this.tanggal() + 'T00:00:00')) / 86400000);
+      },
+      /** Membatasi angka ke rentang [min, max]; bila bukan angka, dipakai min. */
+      batas(n, min, max) { n = Math.round(Number(n)); return isNaN(n) ? min : Math.min(max, Math.max(min, n)); },
+      /** Format rupiah, contoh: 15000 menjadi "Rp 15.000". */
+      rupiah(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); },
+      /** Mencari resep berdasarkan id. */
+      resep(id) { return RESEP.find(r => r.id === id); },
+      /**
+       * Menampilkan notifikasi singkat selama 2,5 detik. Memakai toast terpusat
+       * NusaPangan.toast (app.js) bila tersedia; bila tidak, memakai elemen #toast sendiri.
+       */
+      toast(pesan) {
+        if (window.NusaPangan && typeof window.NusaPangan.toast === 'function') { window.NusaPangan.toast(pesan); return; }
+        const el = document.getElementById('toast');
+        el.textContent = pesan;
+        el.classList.remove('hidden');
+        clearTimeout(this._t);
+        this._t = setTimeout(() => el.classList.add('hidden'), 2500);
+      }
+    };
+
+    /** Menandai halaman aktif dan mengatur menu mobile. */
+    const Navigasi = {
+      init() {
+        const halaman = location.pathname.split('/').pop() || 'index.html';
+        document.querySelectorAll('[data-nav]').forEach(a => {
+          if (a.dataset.nav === halaman) {
+            a.classList.add('bg-tua', 'text-white');
+            a.classList.remove('hover:bg-tua/5');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+        const tombol = document.getElementById('btn-menu');
+        const menu = document.getElementById('menu-mobile');
+        tombol.addEventListener('click', () => {
+          const terbuka = menu.classList.toggle('hidden') === false;
+          tombol.setAttribute('aria-expanded', String(terbuka));
+        });
+      }
+    };
+
+    /* ---------- MODUL KULKAS (INTEGRASI DENGAN foodrescue.html) ---------- */
+
+    /** Membaca stok pangan yang disimpan halaman Food Rescue di LocalStorage. */
+    const Kulkas = {
+      /**
+       * Membaca stok dan menghitung sisa hari tiap bahan.
+       * @returns {{pernahBuka:boolean, aktif:Array, kedaluwarsa:Array}}
+       *   aktif = bahan yang belum lewat tanggal; kedaluwarsa = sudah lewat tanggal.
+       *   Tiap bahan: { uid, nama, jumlah, satuan, harga, sisa }
+       */
+      baca() {
+        const pernahBuka = Penyimpanan.ambil('foodrescueSiap', false);
+        const stok = Penyimpanan.ambil('stokPangan', []);
+        const semua = Array.isArray(stok) ? stok.map(s => ({ uid: s.uid, nama: String(s.nama), jumlah: s.jumlah, satuan: s.satuan, harga: Number(s.harga) || 0, sisa: Util.sisaHari(s.exp) })) : [];
+        return {
+          pernahBuka,
+          aktif: semua.filter(s => s.sisa >= 0).sort((a, b) => a.sisa - b.sisa),
+          kedaluwarsa: semua.filter(s => s.sisa < 0)
+        };
+      },
+
+      /**
+       * Mencari bahan stok (yang masih belum lewat tanggal) yang dipakai oleh sebuah resep.
+       * @param {object} resep - objek resep
+       * @param {Array} aktif - daftar stok aktif dari baca()
+       * @returns {Array} bahan stok yang cocok
+       */
+      cocok(resep, aktif) {
+        return aktif.filter(s => {
+          const n = s.nama.toLowerCase();
+          return resep.bahan.some(kw => n.includes(kw) || (n.length >= 4 && kw.includes(n)));
+        });
+      },
+
+      /**
+       * Memakai bahan kulkas yang cocok dengan sebuah resep:
+       * 1) memindahkan bahan cocok dari stokPangan ke riwayatPangan (hasil "selamat", tanggal hari ini),
+       * 2) memasukkan resep ke menu hari ini bila belum ada,
+       * 3) menyegarkan rekomendasi dan menampilkan toast jumlah bahan & nilai rupiah yang diselamatkan.
+       * Bagian bahan yang sempat dipakai lewat tombol − di Food Rescue (item.terpakai) ikut dihitung.
+       * @param {string} id - id resep
+       */
+      pakai(id) {
+        const resep = Util.resep(id);
+        if (!resep) return;
+        const bahan = this.cocok(resep, this.baca().aktif).filter(b => b.uid !== undefined);
+        if (!bahan.length) { Util.toast('Bahan kulkas yang cocok sudah tidak tersedia'); segarkanDataStok(); return; }
+
+        const bacaStok = Penyimpanan.ambil('stokPangan', []);
+        const bacaRiwayat = Penyimpanan.ambil('riwayatPangan', []);
+        const stokAsli = Array.isArray(bacaStok) ? bacaStok : [];
+        const riwayatAsli = Array.isArray(bacaRiwayat) ? bacaRiwayat : [];
+        const uids = new Set(bahan.map(b => b.uid));
+        const hariIni = Util.tanggal();
+        const catatan = [];
+        let nilai = 0;
+
+        const stokBaru = stokAsli.filter(s => {
+          if (!uids.has(s.uid)) return true; // bahan lain tetap di kulkas
+          const tp = s.terpakai && s.terpakai.jumlah > 0 ? s.terpakai : null;
+          const harga = (Number(s.harga) || 0) + (tp ? tp.harga : 0);
+          nilai += harga;
+          catatan.push({ uid: s.uid, nama: s.nama, jumlah: s.jumlah + (tp ? tp.jumlah : 0), satuan: s.satuan, harga: harga, hasil: 'selamat', tanggal: hariIni });
+          return false;
+        });
+        if (!catatan.length) { segarkanDataStok(); return; }
+
+        // Simpan riwayat dulu, lalu stok; bila stok gagal, riwayat dikembalikan agar data tetap konsisten
+        if (!Penyimpanan.simpan('riwayatPangan', catatan.concat(riwayatAsli).slice(0, 50))) { Util.toast('Penyimpanan penuh. Hapus data lama terlebih dahulu.'); return; }
+        if (!Penyimpanan.simpan('stokPangan', stokBaru)) {
+          Penyimpanan.simpan('riwayatPangan', riwayatAsli);
+          Util.toast('Penyimpanan penuh. Hapus data lama terlebih dahulu.');
+          return;
+        }
+
+        // Masukkan resep ke menu hari ini (tanpa membatalkan bila sudah ada)
+        const sudahDiMenu = Kalkulator.ada(id);
+        if (!sudahDiMenu) { Kalkulator.state.menu.push(id); Kalkulator.simpan(); Kalkulator.render(); Kartu.sinkron(); }
+
+        segarkanDataStok();
+        Util.toast(`${catatan.length} bahan diselamatkan (hemat ${Util.rupiah(nilai)}) untuk ${resep.nama}${sudahDiMenu ? '' : ', masuk menu hari ini'}!`);
+      },
+
+      /** Bobot prioritas: makin dekat kedaluwarsa, makin tinggi. */
+      bobot(sisa) { return sisa < BATAS_MERAH ? 3 : sisa < BATAS_KUNING ? 2 : 1; },
+
+      /** Teks sisa hari singkat. */
+      teksSisa(sisa) { return sisa === 0 ? 'hari ini' : sisa + ' hari'; }
+    };
+
+    /* ---------- MODUL KARTU RESEP (dipakai fitur 1 dan 3) ---------- */
+
+    const Kartu = {
+      /** Label gizi unggulan sebuah resep. */
+      tagGizi(r) {
+        const t = [];
+        if (r.harga <= 4000) t.push('Hemat');
+        if (r.prot >= 12) t.push('Tinggi protein');
+        if (r.serat >= 6) t.push('Tinggi serat');
+        if (r.vitc >= 25) t.push('Tinggi vitamin C');
+        if (r.kal <= 150) t.push('Rendah kalori');
+        return t;
+      },
+
+      /** HTML isi tombol menu (berubah sesuai apakah resep sudah ada di menu). */
+      isiTombol(id) {
+        return Kalkulator.ada(id)
+          ? '<i data-lucide="check" class="w-4 h-4"></i> Sudah di menu (klik untuk batal)'
+          : '<i data-lucide="plus" class="w-4 h-4"></i> Tambah ke menu hari ini';
+      },
+
+      /**
+       * Membuat HTML kartu resep.
+       * @param {object} r - resep
+       * @param {Array} cocok - bahan stok yang cocok (boleh kosong)
+       * @returns {string} HTML kartu
+       */
+      html(r, cocok) {
+        const lencana = cocok.map(s => {
+          const warna = s.sisa < BATAS_MERAH ? 'bg-red-100 text-red-800' : s.sisa < BATAS_KUNING ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800';
+          return `<span class="rounded-full px-2.5 py-1 ${warna}">${Util.esc(s.nama)} · ${Kulkas.teksSisa(s.sisa)}</span>`;
+        }).join('');
+        return `
+          <article class="bg-white border border-tua/10 rounded-2xl p-5 flex flex-col">
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="font-bold text-lg leading-snug">${r.nama}</h3>
+              <span class="text-xs font-semibold bg-panen/25 rounded-full px-2.5 py-1 whitespace-nowrap">${Util.rupiah(r.harga)}</span>
+            </div>
+            ${cocok.length ? `<p class="mt-3 text-xs font-semibold text-tua/60">Menyelamatkan dari kulkasmu:</p><div class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold">${lencana}</div>` : ''}
+            <p class="mt-3 text-xs text-tua/60">${r.tampil}</p>
+            <div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+              <div class="bg-krem rounded-lg py-2"><strong class="block text-sm">${r.kal}</strong>kkal</div>
+              <div class="bg-krem rounded-lg py-2"><strong class="block text-sm">${r.prot}</strong>protein</div>
+              <div class="bg-krem rounded-lg py-2"><strong class="block text-sm">${r.serat}</strong>serat</div>
+              <div class="bg-krem rounded-lg py-2"><strong class="block text-sm">${r.vitc}</strong>vit. C</div>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-1.5 text-xs font-semibold">${this.tagGizi(r).map(t => `<span class="bg-segar/15 rounded-full px-2.5 py-1">${t}</span>`).join('')}</div>
+            <details class="mt-3 text-sm"><summary class="cursor-pointer font-semibold text-segar">Cara membuat</summary><p class="mt-2 text-tua/70 leading-relaxed">${r.langkah}</p></details>
+            <button type="button" data-menu="${r.id}" class="mt-4 inline-flex justify-center items-center gap-2 bg-segar text-white text-sm font-bold px-4 py-2 rounded-xl hover:brightness-110 transition">${this.isiTombol(r.id)}</button>
+            ${cocok.length ? `<button type="button" data-pakai-kulkas="${r.id}" class="mt-2 inline-flex justify-center items-center gap-2 border border-segar text-segar text-sm font-bold px-4 py-2 rounded-xl hover:bg-segar/10 transition" aria-label="Pakai bahan kulkas untuk ${r.nama}"><i data-lucide="refrigerator" class="w-4 h-4"></i> Pakai bahan kulkas</button>` : ''}
+          </article>`;
+      },
+
+      /** Menyegarkan teks semua tombol menu tanpa menggambar ulang kartu. */
+      sinkron() {
+        document.querySelectorAll('[data-menu]').forEach(b => { b.innerHTML = this.isiTombol(b.dataset.menu); });
+        lucide.createIcons();
+      }
+    };
+
+    /* ---------- FITUR 1: REKOMENDASI DARI STOK ---------- */
+
+    const Rekomendasi = {
+      /** Membaca stok terbaru lalu menggambar info kulkas dan daftar resep yang cocok. */
+      render() {
+        const { pernahBuka, aktif, kedaluwarsa } = Kulkas.baca();
+        const info = document.getElementById('info-kulkas');
+        const grid = document.getElementById('grid-rekomendasi');
+
+        // Kasus 1: halaman Food Rescue belum pernah dibuka
+        if (!pernahBuka && !aktif.length && !kedaluwarsa.length) {
+          info.innerHTML = `<div class="bg-white border border-dashed border-tua/20 rounded-2xl p-6 text-sm text-tua/70">Belum ada data stok. Buka halaman <a href="foodrescue.html" class="font-bold text-segar underline">Food Rescue</a> terlebih dahulu, lalu kembali ke sini untuk melihat rekomendasi resep.</div>`;
+          grid.innerHTML = '';
+          return;
+        }
+
+        const mendesak = aktif.filter(s => s.sisa < BATAS_KUNING).length;
+        let html = `<div class="bg-segar/10 border border-segar/20 rounded-2xl p-4 text-sm font-semibold">Di kulkas ada ${aktif.length} bahan layak olah, ${mendesak} di antaranya hampir kedaluwarsa (kurang dari ${BATAS_KUNING} hari).</div>`;
+        if (kedaluwarsa.length) {
+          html += `<div class="mt-3 bg-red-50 border border-red-200 text-red-900 rounded-2xl p-4 text-sm">Bahan ini sudah lewat tanggal dan tidak dipakai untuk rekomendasi: <strong>${kedaluwarsa.map(s => Util.esc(s.nama)).join(', ')}</strong>. Periksa kondisinya; buang bila berbau, berlendir, atau berjamur.</div>`;
+        }
+        info.innerHTML = html;
+
+        // Hitung skor tiap resep: jumlah bobot bahan stok yang cocok
+        const daftar = RESEP
+          .map(r => { const c = Kulkas.cocok(r, aktif); return { r, c, skor: c.reduce((n, s) => n + Kulkas.bobot(s.sisa), 0) }; })
+          .filter(x => x.skor > 0)
+          .sort((a, b) => b.skor - a.skor)
+          .slice(0, 6);
+
+        grid.innerHTML = daftar.length
+          ? daftar.map(x => Kartu.html(x.r, x.c)).join('')
+          : '<p class="sm:col-span-2 lg:col-span-3 text-center text-tua/60 py-8">Belum ada resep yang cocok dengan stok saat ini. Coba cari resep di bagian bawah.</p>';
+      }
+    };
+
+    /* ---------- FITUR 2: KALKULATOR GIZI ---------- */
+
+    const Kalkulator = {
+      /** Status kalkulator: jumlah dewasa & anak, id menu terpilih, dan tanggal menu. */
+      state: { dewasa: 2, anak: 2, menu: [], tanggal: Util.tanggal() },
+
+      /** Apakah resep sudah ada di menu hari ini? */
+      ada(id) { return this.state.menu.includes(id); },
+
+      /** Menyimpan status ke LocalStorage. */
+      simpan() { Penyimpanan.simpan('gizi', this.state); },
+
+      /**
+       * Menambah/menghapus resep dari menu hari ini.
+       * @param {string} id - id resep
+       */
+      toggle(id) {
+        const i = this.state.menu.indexOf(id);
+        if (i >= 0) this.state.menu.splice(i, 1); else this.state.menu.push(id);
+        this.simpan();
+        this.render();
+        Kartu.sinkron();
+        Util.toast(i >= 0 ? 'Dihapus dari menu hari ini' : `${Util.resep(id).nama} masuk menu hari ini`);
+      },
+
+      /** Menggambar chip pilihan menu (tombol toggle). */
+      renderChip() {
+        document.getElementById('chip-menu').innerHTML = RESEP.map(r => {
+          const aktif = this.ada(r.id);
+          return `<button type="button" data-chip="${r.id}" aria-pressed="${aktif}" class="px-3 py-1.5 rounded-full border ${aktif ? 'bg-tua text-white border-tua' : 'border-tua/20 hover:bg-tua/5'}">${r.nama}</button>`;
+        }).join('');
+      },
+
+      /** Menghitung total asupan & target keluarga, lalu menggambar progress bar. */
+      render() {
+        const { dewasa, anak, menu } = this.state;
+        const faktor = dewasa + anak * PORSI_ANAK; // jumlah "porsi setara dewasa"
+        const dipilih = menu.map(Util.resep);
+        this.renderChip();
+
+        const hasil = NUTRISI.map(n => {
+          const asupan = dipilih.reduce((t, r) => t + r[n.k], 0) * faktor;
+          const target = dewasa * TARGET.dewasa[n.k] + anak * TARGET.anak[n.k];
+          return { ...n, asupan, target, persen: Math.round(asupan / target * 100) };
+        });
+
+        document.getElementById('bar-gizi').innerHTML = hasil.map(h => {
+          const warna = h.persen < 70 ? 'bg-panen' : h.persen <= 120 ? 'bg-segar' : 'bg-red-500';
+          const ket = h.persen < 70 ? 'Masih kurang' : h.persen <= 120 ? 'Tercukupi' : 'Berlebih';
+          return `
+            <div>
+              <div class="flex justify-between text-sm font-semibold">
+                <span>${h.label}</span>
+                <span>${Math.round(h.asupan).toLocaleString('id-ID')} / ${Math.round(h.target).toLocaleString('id-ID')} ${h.sat} · ${h.persen}%</span>
+              </div>
+              <div class="mt-1.5 h-3.5 rounded-full bg-tua/10 overflow-hidden" role="progressbar" aria-valuenow="${Math.min(h.persen, 100)}" aria-valuemin="0" aria-valuemax="100" aria-label="${h.label}">
+                <div class="h-full ${warna} rounded-full transition-all" style="width:${Math.min(h.persen, 100)}%"></div>
+              </div>
+              <p class="mt-1 text-xs text-tua/60">${dipilih.length ? ket : 'Belum ada menu'}</p>
+            </div>`;
+        }).join('');
+
+        this.renderStatus(hasil, dipilih, faktor);
+      },
+
+      /**
+       * Menampilkan kesimpulan, saran melengkapi gizi, dan estimasi biaya.
+       * @param {Array} hasil - hasil perhitungan 4 zat gizi
+       * @param {Array} dipilih - resep yang dipilih
+       * @param {number} faktor - jumlah porsi setara dewasa
+       */
+      renderStatus(hasil, dipilih, faktor) {
+        const status = document.getElementById('status-gizi');
+        const saran = document.getElementById('saran-gizi');
+        const biaya = document.getElementById('biaya-gizi');
+
+        if (!dipilih.length) {
+          status.textContent = 'Pilih minimal satu menu untuk mulai menghitung.';
+          saran.textContent = '';
+          biaya.textContent = 'Perkiraan biaya bahan: Rp 0';
+          return;
+        }
+
+        const terendah = hasil.reduce((a, b) => (a.persen <= b.persen ? a : b));
+        const berlebih = hasil.filter(h => h.persen > 120).map(h => h.label.toLowerCase());
+
+        if (terendah.persen >= 90 && !berlebih.length) {
+          status.innerHTML = '<span class="text-segar">Gizi harian keluarga sudah seimbang. Mantap!</span>';
+          saran.textContent = '';
+        } else if (terendah.persen < 90) {
+          status.innerHTML = `<span class="text-amber-700">${terendah.label} baru terpenuhi ${terendah.persen}%.</span>`;
+          // Saran: dua resep (belum di menu) dengan kandungan zat terendah paling tinggi
+          const usul = RESEP.filter(r => !this.ada(r.id)).sort((a, b) => b[terendah.k] - a[terendah.k]).slice(0, 2);
+          saran.textContent = usul.length ? 'Coba tambahkan: ' + usul.map(r => `${r.nama} (+${r[terendah.k]} ${terendah.sat})`).join(' atau ') + '.' : '';
+        } else {
+          status.innerHTML = `<span class="text-red-700">Asupan ${berlebih.join(', ')} melebihi kebutuhan.</span>`;
+          saran.textContent = 'Kurangi satu menu agar porsi lebih sesuai.';
+        }
+        biaya.textContent = 'Perkiraan biaya bahan hari ini: ' + Util.rupiah(dipilih.reduce((t, r) => t + r.harga, 0) * faktor);
+      },
+
+      /** Memuat status dari LocalStorage; menu direset bila sudah ganti hari. */
+      muat() {
+        const s = Penyimpanan.ambil('gizi', null);
+        if (s) {
+          this.state.dewasa = Util.batas(s.dewasa, 1, 10);
+          this.state.anak = Util.batas(s.anak, 0, 10);
+          if (s.tanggal === Util.tanggal() && Array.isArray(s.menu)) this.state.menu = s.menu.filter(id => Util.resep(id));
+        }
+        document.getElementById('in-dewasa').value = this.state.dewasa;
+        document.getElementById('in-anak').value = this.state.anak;
+      },
+
+      /** Memasang event input jumlah anggota, chip menu, dan tombol kosongkan. */
+      init() {
+        this.muat();
+        const baca = () => {
+          this.state.dewasa = Util.batas(document.getElementById('in-dewasa').value, 1, 10);
+          this.state.anak = Util.batas(document.getElementById('in-anak').value, 0, 10);
+          this.simpan();
+          this.render();
+        };
+        ['in-dewasa', 'in-anak'].forEach(id => {
+          const el = document.getElementById(id);
+          el.addEventListener('input', baca);
+          // Saat selesai mengetik, rapikan nilai yang di luar batas
+          el.addEventListener('change', () => { el.value = Util.batas(el.value, Number(el.min), Number(el.max)); baca(); });
+        });
+        document.getElementById('chip-menu').addEventListener('click', e => {
+          const c = e.target.closest('[data-chip]');
+          if (c) this.toggle(c.dataset.chip);
+        });
+        document.getElementById('btn-kosong').addEventListener('click', () => {
+          this.state.menu = [];
+          this.simpan(); this.render(); Kartu.sinkron();
+          Util.toast('Menu hari ini dikosongkan');
+        });
+        this.render();
+      }
+    };
+
+    /* ---------- FITUR 3: PENCARIAN RESEP ---------- */
+
+    const Pencarian = {
+      /** Aturan filter fokus gizi (angka per porsi). */
+      fokus: {
+        protein:   r => r.prot >= 12,
+        serat:     r => r.serat >= 6,
+        vitc:      r => r.vitc >= 25,
+        rendahkal: r => r.kal <= 150
+      },
+
+      /** Menyaring RESEP sesuai kata kunci, budget, dan fokus gizi, lalu menggambar kartu. */
+      render() {
+        const kata = document.getElementById('cari-resep').value.trim().toLowerCase();
+        const budget = Number(document.getElementById('filter-budget').value) || Infinity;
+        const f = document.getElementById('filter-fokus').value;
+        const { aktif } = Kulkas.baca();
+
+        const hasil = RESEP.filter(r =>
+          (!kata || (r.nama + ' ' + r.tampil).toLowerCase().includes(kata)) &&
+          r.harga <= budget && (!f || this.fokus[f](r)));
+
+        document.getElementById('jumlah-resep').textContent = `Menampilkan ${hasil.length} dari ${RESEP.length} resep`;
+        document.getElementById('hasil-resep').innerHTML = hasil.length
+          ? hasil.map(r => Kartu.html(r, Kulkas.cocok(r, aktif))).join('')
+          : '<p class="sm:col-span-2 lg:col-span-3 text-center text-tua/60 py-10">Tidak ada resep yang cocok. Coba naikkan budget atau ubah kata kunci.</p>';
+      },
+
+      /** Mengosongkan semua isian pencarian. */
+      aturUlang() {
+        document.getElementById('cari-resep').value = '';
+        document.getElementById('filter-budget').value = '';
+        document.getElementById('filter-fokus').value = '';
+        this.render();
+        lucide.createIcons();
+      },
+
+      init() {
+        ['cari-resep', 'filter-budget', 'filter-fokus'].forEach(id =>
+          document.getElementById(id).addEventListener('input', () => { this.render(); lucide.createIcons(); }));
+        document.getElementById('btn-reset-cari').addEventListener('click', () => this.aturUlang());
+      }
+    };
+
+    /* ---------- TITIK MASUK ---------- */
+
+    /** Menggambar ulang bagian yang bergantung pada data stok (rekomendasi & hasil cari). */
+    function segarkanDataStok() {
+      Rekomendasi.render();
+      Pencarian.render();
+      lucide.createIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tahun').textContent = new Date().getFullYear();
+      Navigasi.init();
+      Kalkulator.init();
+      Pencarian.init();
+      segarkanDataStok();
+
+      // Satu listener untuk semua tombol "Tambah ke menu" dan "Pakai bahan kulkas" di kartu resep
+      document.addEventListener('click', e => {
+        const b = e.target.closest('[data-menu]');
+        if (b) { Kalkulator.toggle(b.dataset.menu); return; }
+        const k = e.target.closest('[data-pakai-kulkas]');
+        if (k) Kulkas.pakai(k.dataset.pakaiKulkas);
+      });
+
+      // Bila stok berubah di tab lain atau pengguna kembali ke tab ini, data dibaca ulang
+      window.addEventListener('storage', segarkanDataStok);
+      window.addEventListener('focus', segarkanDataStok);
+    });
+  </script>
+</body>
+</html>

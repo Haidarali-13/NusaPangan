@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas
+  Halaman  : foodrescue.html (Manajemen Stok & Anti Food Waste)
+  Fitur    : 1) Pelacak stok pangan rumah (Smart Fridge)
+             2) Status kedaluwarsa otomatis (merah/kuning/hijau)
+             3) Pencarian & filter stok
+             4) Statistik dampak penghematan
+             5) Data contoh (mock data) otomatis saat pertama dibuka
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Food Rescue — NusaPangan</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="Pantau stok kulkas, hindari pangan kedaluwarsa, dan hitung uang yang berhasil dihemat." />
+
+  <!-- Font, Tailwind, dan ikon: sama persis dengan halaman lain -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Tema warna NusaPangan (harus sama di semua halaman) */
+    tailwind.config = {
+      theme: { extend: {
+        colors: { tua: '#1B4332', segar: '#40916C', krem: '#F8F9FA', panen: '#F4A261' },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+      } }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+    /* Gaya bersama untuk kolom isian */
+    .isian { width: 100%; border: 1px solid rgba(27,67,50,.2); background: #fff; border-radius: .75rem; padding: .6rem .9rem; font-size: .875rem; }
+  </style>
+  <!-- Modul bersama NusaPangan (tema gelap, animasi, akun, foto) -->
+  <script src="app.js"></script>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam di semua halaman) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center"> <img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a data-nav="index.html"       href="index.html"       class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a data-nav="farming.html"     href="farming.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a data-nav="komunitas.html"   href="komunitas.html"   class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-tua/5">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a data-nav="index.html"       href="index.html"       class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a data-nav="farming.html"     href="farming.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a data-nav="komunitas.html"   href="komunitas.html"   class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+
+  <main>
+    <!-- ===================== HEADER HALAMAN ===================== -->
+    <section class="bg-tua pola-titik text-white">
+      <div class="max-w-6xl mx-auto px-4 py-14 md:py-20">
+        <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/10 rounded-full px-3 py-1 mb-5">
+          <i data-lucide="refrigerator" class="w-4 h-4 text-panen"></i> Food Rescue
+        </p>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight max-w-3xl">Selamatkan makanan sebelum kedaluwarsa.</h1>
+        <p class="mt-4 text-lg text-white/80 max-w-2xl leading-relaxed">Catat isi kulkas, pantau sisa harinya, dan lihat berapa uang yang berhasil Anda hemat.</p>
+      </div>
+    </section>
+
+    <!-- ===================== FITUR 4: STATISTIK DAMPAK ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pt-12" aria-label="Statistik dampak">
+      <div id="statistik" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    <!-- Banner prioritas: bahan yang harus segera diolah -->
+    <section class="max-w-6xl mx-auto px-4 pt-6" aria-live="polite">
+      <div id="prioritas"></div>
+    </section>
+
+    <!-- ===================== FITUR 1-3: FORM, DAFTAR, FILTER ===================== -->
+    <section class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-5 gap-6">
+
+      <!-- FITUR 1: Form tambah bahan -->
+      <form id="form-stok" class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-6 space-y-4 self-start" novalidate>
+        <h2 class="text-xl font-extrabold">Tambah bahan makanan</h2>
+        <div>
+          <label for="in-nama" class="block text-sm font-semibold mb-1">Nama bahan</label>
+          <input id="in-nama" type="text" maxlength="40" placeholder="Contoh: Tempe" class="isian" required />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="in-jumlah" class="block text-sm font-semibold mb-1">Jumlah</label>
+            <input id="in-jumlah" type="number" min="0.1" step="any" value="1" class="isian" required />
+          </div>
+          <div>
+            <label for="in-satuan" class="block text-sm font-semibold mb-1">Satuan</label>
+            <select id="in-satuan" class="isian">
+              <option>pcs</option><option>kg</option><option>gram</option><option>liter</option><option>bungkus</option><option>ikat</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="in-kategori" class="block text-sm font-semibold mb-1">Kategori</label>
+          <select id="in-kategori" class="isian"></select>
+        </div>
+        <div>
+          <label for="in-exp" class="block text-sm font-semibold mb-1">Tanggal kedaluwarsa</label>
+          <input id="in-exp" type="date" class="isian" required />
+        </div>
+        <div>
+          <label for="in-harga" class="block text-sm font-semibold mb-1">Perkiraan harga (Rp) <span class="font-normal text-tua/50">(opsional)</span></label>
+          <input id="in-harga" type="number" min="0" step="500" placeholder="Kosongkan untuk perkiraan otomatis" class="isian" />
+        </div>
+        <div>
+          <label for="in-foto" class="block text-sm font-semibold mb-1">Foto <span class="font-normal text-tua/50">(opsional, maks. 5 MB)</span></label>
+          <input id="in-foto" type="file" accept="image/*" class="isian text-xs" />
+          <div id="pratinjau-foto" class="hidden mt-2">
+            <img id="img-foto" alt="Pratinjau foto" class="w-full max-h-48 object-cover rounded-xl border border-tua/10" />
+            <button id="hapus-foto" type="button" class="mt-1 text-sm font-semibold text-red-700 hover:underline">Hapus foto</button>
+          </div>
+          <p id="galat-foto" class="text-sm mt-1 hidden" role="status"></p>
+        </div>
+        <p id="galat-form" class="text-sm text-red-700 hidden" role="alert"></p>
+        <button type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-tua text-white font-bold px-5 py-3 rounded-xl hover:brightness-110 transition">
+          <i data-lucide="plus" class="w-4 h-4"></i> Simpan ke stok
+        </button>
+      </form>
+
+      <!-- Daftar stok + pencarian/filter -->
+      <div class="md:col-span-3">
+        <h2 class="text-xl font-extrabold">Stok pangan rumah</h2>
+
+        <!-- FITUR 3: Pencarian & filter -->
+        <div class="mt-4 grid sm:grid-cols-2 gap-3">
+          <div class="relative">
+            <label for="cari" class="sr-only">Cari bahan</label>
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-tua/40"></i>
+            <input id="cari" type="search" placeholder="Cari nama bahan…" class="isian pl-9" />
+          </div>
+          <div>
+            <label for="filter-kategori" class="sr-only">Kategori</label>
+            <select id="filter-kategori" class="isian"></select>
+          </div>
+        </div>
+        <div id="chip-status" class="mt-3 flex flex-wrap gap-2 text-sm font-semibold" role="group" aria-label="Filter status">
+          <button type="button" data-status="" class="chip px-4 py-1.5 rounded-full border border-tua/20">Semua</button>
+          <button type="button" data-status="hampir" class="chip px-4 py-1.5 rounded-full border border-tua/20">Hampir expired</button>
+          <button type="button" data-status="merah" class="chip px-4 py-1.5 rounded-full border border-tua/20">Segera olah</button>
+          <button type="button" data-status="hijau" class="chip px-4 py-1.5 rounded-full border border-tua/20">Masih aman</button>
+        </div>
+        <p id="jumlah-hasil" class="mt-3 text-sm text-tua/60" aria-live="polite"></p>
+
+        <div id="daftar-stok" class="mt-3 space-y-3"></div>
+
+        <!-- Riwayat -->
+        <div class="mt-10 flex items-center justify-between">
+          <h2 class="text-xl font-extrabold">Riwayat terakhir</h2>
+          <button id="btn-demo" type="button" class="text-sm font-semibold text-segar hover:underline">Kembalikan data contoh</button>
+        </div>
+        <ul id="riwayat" class="mt-3 bg-white border border-tua/10 rounded-2xl divide-y divide-tua/10 text-sm"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notifikasi singkat (toast) -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-tua text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl hidden z-50" role="status"></div>
+
+  <!-- ===================== FOOTER (seragam) ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Proyek</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- ===================== JAVASCRIPT MODULAR ===================== -->
+  <script>
+    'use strict';
+
+    /* ---------- KONFIGURASI & DATA ---------- */
+
+    /**
+     * Kategori bahan pangan.
+     * - label : nama tampilan
+     * - harga : perkiraan harga (Rp) bila pengguna tidak mengisi harga
+     * - resep : saran cara mengolah agar bahan tidak terbuang
+     */
+    const KATEGORI = {
+      sayur:    { label: 'Sayuran',          harga: 8000,  resep: 'Tumis, buat sup, atau jadikan isian omelet.' },
+      buah:     { label: 'Buah',             harga: 15000, resep: 'Blender jadi smoothie, atau masak jadi selai.' },
+      protein:  { label: 'Protein (lauk)',   harga: 30000, resep: 'Masak balado atau goreng, lalu simpan di freezer.' },
+      susu:     { label: 'Susu & olahan',    harga: 20000, resep: 'Buat puding, pancake, atau campurkan ke bubur.' },
+      karbo:    { label: 'Karbohidrat',      harga: 12000, resep: 'Olah jadi nasi goreng, roti panggang, atau bubur.' },
+      lainnya:  { label: 'Lainnya',          harga: 10000, resep: 'Gunakan secepatnya atau bagikan ke tetangga.' }
+    };
+
+    /** Batas hari status: kurang dari 3 = merah, kurang dari 7 = kuning, selain itu hijau. */
+    const BATAS_MERAH = 3;
+    const BATAS_KUNING = 7;
+
+    /* ---------- MODUL UTILITAS ---------- */
+
+    /** Pembungkus LocalStorage aman (sama dengan halaman lain). */
+    const Penyimpanan = {
+      awalan: 'nusapangan:',
+      /** Mengambil data; mengembalikan `cadangan` bila kosong/rusak. */
+      ambil(kunci, cadangan) {
+        try { const m = localStorage.getItem(this.awalan + kunci); return m === null ? cadangan : JSON.parse(m); }
+        catch (e) { return cadangan; }
+      },
+      /** Menyimpan data (otomatis diubah ke JSON). @returns {boolean} false bila penyimpanan penuh. */
+      simpan(kunci, nilai) {
+        try { localStorage.setItem(this.awalan + kunci, JSON.stringify(nilai)); return true; } catch (e) { return false; /* penyimpanan penuh/diblokir */ }
+      }
+    };
+
+    /** Fungsi bantu umum. */
+    const Util = {
+      /** Mengamankan teks dari penyisipan HTML (mencegah XSS). */
+      esc(teks) { const d = document.createElement('div'); d.textContent = teks; return d.innerHTML; },
+
+      /** Tanggal hari ini + `n` hari, format YYYY-MM-DD (zona waktu lokal). */
+      tanggal(n = 0) { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); },
+
+      /**
+       * Menghitung sisa hari menuju tanggal kedaluwarsa.
+       * @param {string} exp - tanggal kedaluwarsa (YYYY-MM-DD)
+       * @returns {number} sisa hari (negatif bila sudah lewat)
+       */
+      sisaHari(exp) {
+        const a = new Date(this.tanggal() + 'T00:00:00');
+        const b = new Date(exp + 'T00:00:00');
+        return Math.round((b - a) / 86400000);
+      },
+
+      /** Mengubah angka ke format rupiah, contoh: 15000 → "Rp 15.000". */
+      rupiah(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); },
+
+      /** Format tanggal Indonesia, contoh: "20 Oktober 2026". */
+      tglIndo(t) { return new Date(t + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); },
+
+      /**
+       * Menampilkan notifikasi singkat selama 2,5 detik. Memakai toast terpusat
+       * NusaPangan.toast (app.js) bila tersedia; bila tidak, memakai elemen #toast sendiri.
+       */
+      toast(pesan) {
+        if (window.NusaPangan && typeof window.NusaPangan.toast === 'function') { window.NusaPangan.toast(pesan); return; }
+        const el = document.getElementById('toast');
+        el.textContent = pesan;
+        el.classList.remove('hidden');
+        clearTimeout(this._t);
+        this._t = setTimeout(() => el.classList.add('hidden'), 2500);
+      }
+    };
+
+    /* ---------- MODUL NAVIGASI ---------- */
+
+    /** Menandai halaman aktif dan mengatur menu mobile. */
+    const Navigasi = {
+      init() {
+        const halaman = location.pathname.split('/').pop() || 'index.html';
+        document.querySelectorAll('[data-nav]').forEach(a => {
+          if (a.dataset.nav === halaman) {
+            a.classList.add('bg-tua', 'text-white');
+            a.classList.remove('hover:bg-tua/5');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+        const tombol = document.getElementById('btn-menu');
+        const menu = document.getElementById('menu-mobile');
+        tombol.addEventListener('click', () => {
+          const terbuka = menu.classList.toggle('hidden') === false;
+          tombol.setAttribute('aria-expanded', String(terbuka));
+        });
+      }
+    };
+
+    /* ---------- MODUL DATA (STOK + RIWAYAT) ---------- */
+
+    /**
+     * Mengelola data stok dan riwayat di LocalStorage.
+     * - stok    : bahan yang masih ada di rumah
+     * - riwayat : bahan yang sudah diolah ("selamat") atau dibuang ("terbuang")
+     */
+    const Data = {
+      stok: [],
+      riwayat: [],
+
+      /** Mengisi data contoh agar halaman tidak kosong (dipakai juga oleh tombol reset). */
+      isiContoh() {
+        const u = Date.now();
+        this.stok = [
+          { uid: u + 1, nama: 'Bayam',          jumlah: 2,   satuan: 'ikat',    kategori: 'sayur',   exp: Util.tanggal(-1), harga: 6000 },
+          { uid: u + 2, nama: 'Susu UHT',       jumlah: 1,   satuan: 'liter',   kategori: 'susu',    exp: Util.tanggal(1),  harga: 19000 },
+          { uid: u + 3, nama: 'Tempe',          jumlah: 2,   satuan: 'bungkus', kategori: 'protein', exp: Util.tanggal(2),  harga: 10000 },
+          { uid: u + 4, nama: 'Pisang',         jumlah: 6,   satuan: 'pcs',     kategori: 'buah',    exp: Util.tanggal(4),  harga: 12000 },
+          { uid: u + 5, nama: 'Ayam fillet',    jumlah: 0.5, satuan: 'kg',      kategori: 'protein', exp: Util.tanggal(6),  harga: 35000 },
+          { uid: u + 6, nama: 'Telur',          jumlah: 10,  satuan: 'pcs',     kategori: 'protein', exp: Util.tanggal(12), harga: 24000 },
+          { uid: u + 7, nama: 'Wortel',         jumlah: 0.5, satuan: 'kg',      kategori: 'sayur',   exp: Util.tanggal(15), harga: 9000 },
+          { uid: u + 8, nama: 'Beras',          jumlah: 5,   satuan: 'kg',      kategori: 'karbo',   exp: Util.tanggal(120),harga: 70000 }
+        ];
+        this.riwayat = [
+          { uid: u + 11, nama: 'Tahu',      jumlah: 5, satuan: 'pcs',     harga: 8000,  hasil: 'selamat',  tanggal: Util.tanggal(-2) },
+          { uid: u + 12, nama: 'Tomat',     jumlah: 4, satuan: 'pcs',     harga: 7000,  hasil: 'selamat',  tanggal: Util.tanggal(-4) },
+          { uid: u + 13, nama: 'Roti tawar',jumlah: 1, satuan: 'bungkus', harga: 15000, hasil: 'selamat',  tanggal: Util.tanggal(-6) },
+          { uid: u + 14, nama: 'Selada',    jumlah: 1, satuan: 'pcs',     harga: 9000,  hasil: 'terbuang', tanggal: Util.tanggal(-8) }
+        ];
+        this.simpan();
+      },
+
+      /** Memuat data dari LocalStorage; bila pertama kali dibuka, isi data contoh. */
+      muat() {
+        if (!Penyimpanan.ambil('foodrescueSiap', false)) {
+          this.isiContoh();
+          Penyimpanan.simpan('foodrescueSiap', true);
+        } else {
+          this.stok = Penyimpanan.ambil('stokPangan', []);
+          this.riwayat = Penyimpanan.ambil('riwayatPangan', []);
+        }
+      },
+
+      /** Menyimpan stok dan riwayat ke LocalStorage. @returns {boolean} false bila penyimpanan penuh. */
+      simpan() {
+        return Penyimpanan.simpan('stokPangan', this.stok) && Penyimpanan.simpan('riwayatPangan', this.riwayat);
+      }
+    };
+
+    /* ---------- FITUR 2: STATUS OTOMATIS ---------- */
+
+    /**
+     * Menentukan status berdasarkan sisa hari.
+     * @param {number} sisa - sisa hari menuju kedaluwarsa
+     * @returns {{kunci:string, label:string, badge:string, garis:string}}
+     */
+    function tentukanStatus(sisa) {
+      if (sisa < BATAS_MERAH) return { kunci: 'merah',  label: 'Segera olah', badge: 'bg-red-100 text-red-800',     garis: 'border-l-red-500' };
+      if (sisa < BATAS_KUNING) return { kunci: 'kuning', label: 'Hati-hati',   badge: 'bg-amber-100 text-amber-800', garis: 'border-l-amber-400' };
+      return                          { kunci: 'hijau',  label: 'Masih aman',  badge: 'bg-green-100 text-green-800', garis: 'border-l-green-500' };
+    }
+
+    /**
+     * Teks sisa hari yang ramah dibaca.
+     * @param {number} sisa
+     * @returns {string}
+     */
+    function teksSisa(sisa) {
+      if (sisa < 0) return `Kedaluwarsa ${Math.abs(sisa)} hari lalu`;
+      if (sisa === 0) return 'Kedaluwarsa hari ini';
+      return `${sisa} hari lagi`;
+    }
+
+    /* ---------- FITUR 4: STATISTIK ---------- */
+
+    /** Menghitung dan menampilkan statistik dampak dari riwayat. */
+    const Statistik = {
+      render() {
+        const selamat = Data.riwayat.filter(r => r.hasil === 'selamat');
+        const buang = Data.riwayat.filter(r => r.hasil === 'terbuang');
+        const hemat = selamat.reduce((n, r) => n + r.harga, 0);
+        const rugi = buang.reduce((n, r) => n + r.harga, 0);
+        const total = selamat.length + buang.length;
+        const persen = total ? Math.round(selamat.length / total * 100) : 0;
+
+        const kartu = [
+          ['package-check', 'Bahan diselamatkan', selamat.length + ' item', 'bg-tua text-white', 'text-panen'],
+          ['wallet', 'Uang dihemat', Util.rupiah(hemat), 'bg-panen text-tua', 'text-tua'],
+          ['trash-2', 'Bahan terbuang', `${buang.length} item (${Util.rupiah(rugi)})`, 'bg-white border border-tua/10', 'text-red-600'],
+          ['percent', 'Tingkat penyelamatan', persen + '%', 'bg-white border border-tua/10', 'text-segar']
+        ];
+        document.getElementById('statistik').innerHTML = kartu.map(([ikon, label, nilai, kelas, warnaIkon]) => `
+          <div class="${kelas} rounded-3xl p-5">
+            <i data-lucide="${ikon}" class="w-6 h-6 ${warnaIkon}"></i>
+            <p class="mt-3 text-xl md:text-2xl font-extrabold leading-tight">${nilai}</p>
+            <p class="mt-1 text-sm opacity-75">${label}</p>
+          </div>`).join('');
+      }
+    };
+
+    /* ---------- BANNER PRIORITAS ---------- */
+
+    /** Menampilkan peringatan untuk bahan berstatus merah beserta saran olahan. */
+    const Prioritas = {
+      render() {
+        const wadah = document.getElementById('prioritas');
+        const urgent = Data.stok.filter(s => Util.sisaHari(s.exp) < BATAS_MERAH)
+          .sort((a, b) => Util.sisaHari(a.exp) - Util.sisaHari(b.exp));
+
+        if (!urgent.length) {
+          wadah.innerHTML = `<div class="bg-green-50 border border-green-200 text-green-900 rounded-2xl p-4 text-sm font-semibold flex items-center gap-2"><i data-lucide="check-circle-2" class="w-5 h-5"></i> Tidak ada bahan yang perlu segera diolah. Kerja bagus!</div>`;
+          return;
+        }
+        wadah.innerHTML = `
+          <div class="bg-red-50 border border-red-200 rounded-2xl p-5">
+            <p class="font-bold text-red-900 flex items-center gap-2"><i data-lucide="alarm-clock" class="w-5 h-5"></i> ${urgent.length} bahan perlu segera diolah</p>
+            <ul class="mt-2 space-y-1 text-sm text-red-900/90">
+              ${urgent.map(s => `<li><strong>${Util.esc(s.nama)}</strong> (${teksSisa(Util.sisaHari(s.exp))}): ${KATEGORI[s.kategori].resep}</li>`).join('')}
+            </ul>
+          </div>`;
+      }
+    };
+
+    /* ---------- FITUR 1 & 3: DAFTAR STOK, FORM, FILTER ---------- */
+
+    /** Mengelola form, daftar, pencarian, dan filter stok. */
+    const Stok = {
+      /** Filter status yang sedang aktif: '' | 'hampir' | 'merah' | 'hijau'. */
+      statusAktif: '',
+      /** Pengendali unggah foto bahan (NusaPangan.Foto di app.js). */
+      foto: null,
+
+      /** Menyaring stok sesuai pencarian, kategori, dan status; hasil diurutkan dari yang paling dekat expired. */
+      saring() {
+        const kata = document.getElementById('cari').value.trim().toLowerCase();
+        const kat = document.getElementById('filter-kategori').value;
+        return Data.stok
+          .filter(s => {
+            const sisa = Util.sisaHari(s.exp);
+            const st = tentukanStatus(sisa).kunci;
+            const cocokStatus = !this.statusAktif ||
+              (this.statusAktif === 'hampir' ? sisa < BATAS_KUNING : st === this.statusAktif);
+            return cocokStatus && (!kat || s.kategori === kat) && (!kata || s.nama.toLowerCase().includes(kata));
+          })
+          .sort((a, b) => Util.sisaHari(a.exp) - Util.sisaHari(b.exp));
+      },
+
+      /**
+       * Menentukan besar langkah tombol − / + untuk sebuah bahan.
+       * - kg / liter : kelipatan 0,5
+       * - gram       : kelipatan 50
+       * - lainnya    : bilangan bulat (langkah 1)
+       * @param {object} s - bahan stok
+       * @returns {number} langkah, atau 0 bila jumlahnya tidak sesuai pola (tombol disembunyikan)
+       */
+      langkah(s) {
+        const j = Number(s.jumlah);
+        if (!(j > 0)) return 0;
+        if (s.satuan === 'kg' || s.satuan === 'liter') return Number.isInteger(j * 2) ? 0.5 : 0;
+        if (s.satuan === 'gram') return j % 50 === 0 ? 50 : 0;
+        return Number.isInteger(j) ? 1 : 0;
+      },
+
+      /** Menggambar daftar stok dan menandai chip filter yang aktif. */
+      render() {
+        document.querySelectorAll('.chip').forEach(c => {
+          const aktif = c.dataset.status === this.statusAktif;
+          c.classList.toggle('bg-tua', aktif);
+          c.classList.toggle('text-white', aktif);
+          c.setAttribute('aria-pressed', String(aktif));
+        });
+
+        const hasil = this.saring();
+        document.getElementById('jumlah-hasil').textContent = `Menampilkan ${hasil.length} dari ${Data.stok.length} bahan`;
+        const wadah = document.getElementById('daftar-stok');
+
+        if (!hasil.length) {
+          wadah.innerHTML = `<div class="bg-white border border-dashed border-tua/20 rounded-2xl p-8 text-center text-sm text-tua/60">${
+            Data.stok.length ? 'Tidak ada bahan yang cocok. Coba ubah pencarian atau filter.' : 'Stok kosong. Tambahkan bahan lewat form di samping.'}</div>`;
+          return;
+        }
+
+        wadah.innerHTML = hasil.map(s => {
+          const sisa = Util.sisaHari(s.exp);
+          const st = tentukanStatus(sisa);
+          const langkah = this.langkah(s);
+          return `
+            <article class="bg-white border border-tua/10 border-l-4 ${st.garis} rounded-2xl p-5">
+              ${NusaPangan.Foto.aman(s.foto) ? `<img src="${s.foto}" alt="Foto ${Util.esc(s.nama)}" class="w-full h-36 object-cover rounded-xl mb-3" />` : ''}
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="font-bold text-lg">${Util.esc(s.nama)}</h3>
+                  <p class="text-xs text-tua/60">${langkah ? '' : `${s.jumlah} ${Util.esc(String(s.satuan))} · `}${KATEGORI[s.kategori].label} · ${Util.rupiah(s.harga)}</p>
+                </div>
+                <span class="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap ${st.badge}">${st.label}</span>
+              </div>
+              ${langkah ? `
+              <div class="mt-3 inline-flex items-center gap-1" role="group" aria-label="Ubah jumlah ${Util.esc(s.nama)}">
+                <button type="button" data-aksi="kurang" data-uid="${s.uid}" class="w-9 h-9 grid place-items-center rounded-lg border border-tua/20 hover:bg-tua/5" aria-label="Kurangi jumlah ${Util.esc(s.nama)}"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                <span class="min-w-[5rem] text-center text-sm font-bold">${s.jumlah} ${Util.esc(String(s.satuan))}</span>
+                <button type="button" data-aksi="tambah" data-uid="${s.uid}" class="w-9 h-9 grid place-items-center rounded-lg border border-tua/20 hover:bg-tua/5" aria-label="Tambah jumlah ${Util.esc(s.nama)}"><i data-lucide="plus" class="w-4 h-4"></i></button>
+              </div>` : ''}
+              <p class="mt-3 text-sm"><strong>${teksSisa(sisa)}</strong> <span class="text-tua/60">· exp ${Util.tglIndo(s.exp)}</span></p>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button type="button" data-aksi="selamat" data-uid="${s.uid}" class="inline-flex items-center gap-1.5 text-sm font-bold bg-segar text-white px-4 py-2 rounded-xl hover:brightness-110"><i data-lucide="utensils" class="w-4 h-4"></i> Sudah diolah</button>
+                <button type="button" data-aksi="terbuang" data-uid="${s.uid}" class="inline-flex items-center gap-1.5 text-sm font-semibold border border-tua/20 px-4 py-2 rounded-xl hover:bg-tua/5"><i data-lucide="trash-2" class="w-4 h-4"></i> Terbuang</button>
+                <button type="button" data-aksi="hapus" data-uid="${s.uid}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-tua/60 px-3 py-2 rounded-xl hover:bg-tua/5" aria-label="Hapus ${Util.esc(s.nama)} (salah input)"><i data-lucide="x" class="w-4 h-4"></i> Salah input</button>
+              </div>
+            </article>`;
+        }).join('');
+      },
+
+      /**
+       * Memproses pengiriman form: validasi lalu menambah bahan ke stok.
+       * @param {Event} e - event submit
+       */
+      tambah(e) {
+        e.preventDefault();
+        const nama = document.getElementById('in-nama').value.trim();
+        const jumlah = parseFloat(document.getElementById('in-jumlah').value);
+        const satuan = document.getElementById('in-satuan').value;
+        const kategori = document.getElementById('in-kategori').value;
+        const exp = document.getElementById('in-exp').value;
+        const hargaIsi = document.getElementById('in-harga').value;
+        const galat = document.getElementById('galat-form');
+
+        let pesan = '';
+        if (!nama) pesan = 'Nama bahan wajib diisi.';
+        else if (!(jumlah > 0)) pesan = 'Jumlah harus lebih dari 0.';
+        else if (!exp) pesan = 'Tanggal kedaluwarsa wajib diisi.';
+        if (pesan) { galat.textContent = pesan; galat.classList.remove('hidden'); return; }
+        if (this.foto.sedangProses()) { galat.textContent = 'Foto masih diproses, tunggu sebentar.'; galat.classList.remove('hidden'); return; }
+        galat.classList.add('hidden');
+
+        // Simpan bahan beserta foto (Base64). Bila penyimpanan penuh, batalkan dan beri tahu pengguna.
+        Data.stok.push({
+          uid: Date.now(), nama, jumlah, satuan, kategori, exp, foto: this.foto.ambil(),
+          harga: hargaIsi !== '' ? Math.max(0, parseInt(hargaIsi, 10)) : KATEGORI[kategori].harga
+        });
+        if (!Data.simpan()) {
+          Data.stok.pop();
+          galat.textContent = 'Penyimpanan penuh. Pilih foto yang lebih kecil atau hapus data lama.';
+          galat.classList.remove('hidden');
+          return;
+        }
+        this.foto.reset();
+        document.getElementById('form-stok').reset();
+        document.getElementById('in-exp').value = Util.tanggal(7);
+        Halaman.render();
+        Util.toast(`${nama} ditambahkan ke stok`);
+      },
+
+      /**
+       * Mengubah jumlah bahan dengan tombol − / + (pemakaian sebagian).
+       * - Harga ikut berubah proporsional (harga per satuan tetap).
+       * - Bagian yang dipakai dicatat di item.terpakai agar nilai "hemat" tetap akurat
+       *   saat bahan akhirnya ditandai selesai.
+       * - Bila jumlah akan menjadi 0 atau kurang, pengguna ditanya apakah bahan sudah habis diolah.
+       * @param {'kurang'|'tambah'} arah
+       * @param {number} uid - id unik bahan
+       */
+      ubahJumlah(arah, uid) {
+        const item = Data.stok.find(s => s.uid === uid);
+        const langkah = item ? this.langkah(item) : 0;
+        if (!item || !langkah) return;
+
+        const baru = arah === 'tambah' ? item.jumlah + langkah : item.jumlah - langkah;
+        if (baru <= 0) {
+          if (!confirm(`"${item.nama}" akan habis. Tandai sudah habis diolah (terselamatkan)?`)) return;
+          this.aksi('selamat', uid);
+          return;
+        }
+
+        const asal = { jumlah: item.jumlah, harga: item.harga, terpakai: item.terpakai };
+        const hargaBaru = Math.round((item.harga / item.jumlah) * baru);
+        if (arah === 'kurang') {
+          const tp = item.terpakai || { jumlah: 0, harga: 0 };
+          item.terpakai = { jumlah: tp.jumlah + langkah, harga: tp.harga + (item.harga - hargaBaru) };
+        }
+        item.jumlah = baru;
+        item.harga = hargaBaru;
+
+        if (!Data.simpan()) {
+          Object.assign(item, asal); // batalkan perubahan bila penyimpanan penuh
+          Util.toast('Penyimpanan penuh. Hapus data lama terlebih dahulu.');
+          return;
+        }
+        Halaman.render();
+        const b = document.querySelector(`[data-aksi="${arah}"][data-uid="${uid}"]`);
+        if (b) b.focus(); // kembalikan fokus keyboard setelah daftar digambar ulang
+        Util.toast(`${item.nama}: ${arah === 'tambah' ? 'ditambah' : 'dikurangi'}, kini ${item.jumlah} ${item.satuan}`);
+      },
+
+      /**
+       * Menangani tombol aksi pada kartu stok.
+       * @param {'selamat'|'terbuang'|'hapus'|'kurang'|'tambah'} aksi
+       * @param {number} uid - id unik bahan
+       */
+      aksi(aksi, uid) {
+        if (aksi === 'kurang' || aksi === 'tambah') { this.ubahJumlah(aksi, uid); return; }
+        const item = Data.stok.find(s => s.uid === uid);
+        if (!item) return;
+
+        // Bagian yang sudah dipakai lewat tombol − (bila ada)
+        const tp = item.terpakai && item.terpakai.jumlah > 0 ? item.terpakai : null;
+        let hemat = item.harga;
+
+        if (aksi === 'hapus') {
+          if (!confirm(`Hapus "${item.nama}" dari stok? (Tidak dihitung di statistik)`)) return;
+        } else if (aksi === 'selamat') {
+          // Seluruh bahan (bagian terpakai + sisa) dicatat sebagai 1 entri terselamatkan
+          hemat = item.harga + (tp ? tp.harga : 0);
+          Data.riwayat.unshift({ uid: item.uid, nama: item.nama, jumlah: item.jumlah + (tp ? tp.jumlah : 0), satuan: item.satuan, harga: hemat, hasil: 'selamat', tanggal: Util.tanggal() });
+        } else {
+          // Terbuang: hanya sisa yang terbuang; bagian yang sempat dipakai tetap dihitung terselamatkan
+          Data.riwayat.unshift({ uid: item.uid, nama: item.nama, jumlah: item.jumlah, satuan: item.satuan, harga: item.harga, hasil: 'terbuang', tanggal: Util.tanggal() });
+          if (tp) Data.riwayat.unshift({ uid: Date.now(), nama: item.nama, jumlah: tp.jumlah, satuan: item.satuan, harga: tp.harga, hasil: 'selamat', tanggal: Util.tanggal() });
+        }
+        if (aksi !== 'hapus') Data.riwayat = Data.riwayat.slice(0, 50); // batasi 50 data
+        Data.stok = Data.stok.filter(s => s.uid !== uid);
+        Data.simpan();
+        Halaman.render();
+        Util.toast(aksi === 'selamat' ? `${item.nama} terselamatkan! Hemat ${Util.rupiah(hemat)}` : aksi === 'terbuang' ? `${item.nama} dicatat sebagai terbuang` : `${item.nama} dihapus`);
+      },
+
+      /** Mengisi dropdown kategori dan memasang semua event. */
+      init() {
+        const opsi = Object.entries(KATEGORI).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+        document.getElementById('in-kategori').innerHTML = opsi;
+        document.getElementById('filter-kategori').innerHTML = '<option value="">Semua kategori</option>' + opsi;
+        document.getElementById('in-exp').value = Util.tanggal(7);
+
+        // Pengunggah foto bahan: dikompres maks. 600 px agar LocalStorage hemat
+        this.foto = NusaPangan.Foto.pasang({ input: 'in-foto', pratinjau: 'pratinjau-foto', gambar: 'img-foto', hapus: 'hapus-foto', galat: 'galat-foto', maxSisi: 600, kualitas: 0.7, maxKarakter: 200000 });
+        document.getElementById('form-stok').addEventListener('submit', e => this.tambah(e));
+        ['cari', 'filter-kategori'].forEach(id => document.getElementById(id).addEventListener('input', () => { this.render(); lucide.createIcons(); }));
+        document.getElementById('chip-status').addEventListener('click', e => {
+          const c = e.target.closest('.chip');
+          if (c) { this.statusAktif = c.dataset.status; this.render(); }
+        });
+        // Delegasi event untuk tombol pada kartu stok
+        document.getElementById('daftar-stok').addEventListener('click', e => {
+          const b = e.target.closest('[data-aksi]');
+          if (b) this.aksi(b.dataset.aksi, Number(b.dataset.uid));
+        });
+      }
+    };
+
+    /* ---------- RIWAYAT ---------- */
+
+    /** Menampilkan 6 riwayat terakhir. */
+    const Riwayat = {
+      render() {
+        const el = document.getElementById('riwayat');
+        if (!Data.riwayat.length) {
+          el.innerHTML = '<li class="p-4 text-tua/60">Belum ada riwayat. Tandai bahan sebagai "Sudah diolah" atau "Terbuang".</li>';
+          return;
+        }
+        el.innerHTML = Data.riwayat.slice(0, 6).map(r => `
+          <li class="p-4 flex items-center justify-between gap-3">
+            <span><strong>${Util.esc(r.nama)}</strong> <span class="text-tua/60">· ${r.jumlah} ${r.satuan} · ${Util.tglIndo(r.tanggal)}</span></span>
+            <span class="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap ${r.hasil === 'selamat' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${r.hasil === 'selamat' ? 'Hemat ' + Util.rupiah(r.harga) : 'Terbuang'}</span>
+          </li>`).join('');
+      }
+    };
+
+    /* ---------- PENGATUR HALAMAN ---------- */
+
+    /** Menggambar ulang semua bagian halaman setelah ada perubahan data. */
+    const Halaman = {
+      render() {
+        Statistik.render();
+        Prioritas.render();
+        Stok.render();
+        Riwayat.render();
+        lucide.createIcons();
+      }
+    };
+
+    /** Titik masuk: dijalankan setelah HTML selesai dimuat. */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tahun').textContent = new Date().getFullYear();
+      Navigasi.init();
+      Data.muat();
+      Stok.init();
+
+      // Tombol untuk mengembalikan data contoh (berguna saat demo/penilaian)
+      document.getElementById('btn-demo').addEventListener('click', () => {
+        if (confirm('Ganti seluruh stok dan riwayat dengan data contoh?')) {
+          Data.isiContoh();
+          Halaman.render();
+          Util.toast('Data contoh dikembalikan');
+        }
+      });
+      Halaman.render();
+    });
+  </script>
+</body>
+</html>

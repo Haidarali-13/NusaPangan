@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan — Ekosistem Ketahanan Pangan Keluarga & Komunitas
+  Halaman  : farming.html (Smart Urban Farming & Adaptasi Iklim)
+  Fitur    : 1) Simulasi iklim + rekomendasi tanaman
+             2) Katalog tanaman dengan pencarian & filter
+             3) Pelacak "Tanaman Rumahku" (LocalStorage)
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Urban Farming — NusaPangan</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="Rekomendasi tanaman tahan iklim, katalog urban farming, dan pelacak tanaman rumahku." />
+
+  <!-- Font, Tailwind, dan ikon: sama persis dengan index.html agar konsisten -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Tema warna NusaPangan (harus sama di semua halaman) */
+    tailwind.config = {
+      theme: { extend: {
+        colors: { tua: '#1B4332', segar: '#40916C', krem: '#F8F9FA', panen: '#F4A261' },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+      } }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+    /* Gaya bersama untuk kolom isian */
+    .isian { width: 100%; border: 1px solid rgba(27,67,50,.2); background: #fff; border-radius: .75rem; padding: .6rem .9rem; font-size: .875rem; }
+  </style>
+  <!-- Modul bersama NusaPangan: tombol mode gelap & animasi -->
+  <script src="app.js"></script>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam di semua halaman) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a data-nav="index.html"       href="index.html"       class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a data-nav="farming.html"     href="farming.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a data-nav="komunitas.html"   href="komunitas.html"   class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-tua/5">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a data-nav="index.html"       href="index.html"       class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a data-nav="farming.html"     href="farming.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a data-nav="foodrescue.html"  href="foodrescue.html"  class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a data-nav="nutrisi.html"     href="nutrisi.html"     class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a data-nav="komunitas.html"   href="komunitas.html"   class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+
+  <main>
+    <!-- ===================== HEADER HALAMAN ===================== -->
+    <section class="bg-tua pola-titik text-white">
+      <div class="max-w-6xl mx-auto px-4 py-14 md:py-20">
+        <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/10 rounded-full px-3 py-1 mb-5">
+          <i data-lucide="leaf" class="w-4 h-4 text-panen"></i> Smart Urban Farming
+        </p>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight max-w-3xl">Tanam pangan sendiri, apa pun cuacanya.</h1>
+        <p class="mt-4 text-lg text-white/80 max-w-2xl leading-relaxed">Pilih kondisi iklim di tempat Anda, lihat tanaman yang paling tahan, lalu pantau pertumbuhannya sampai panen.</p>
+      </div>
+    </section>
+
+    <!-- ===================== FITUR 1: SIMULASI IKLIM ===================== -->
+    <section class="max-w-6xl mx-auto px-4 py-14" id="iklim">
+      <div class="grid md:grid-cols-5 gap-6">
+        <div class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-6 md:p-8">
+          <h2 class="text-2xl font-extrabold">Simulasi iklim lokal</h2>
+          <p class="mt-2 text-sm text-tua/70 leading-relaxed">Pilih kondisi yang paling mirip dengan tempat tinggal Anda.</p>
+          <label for="pilih-iklim" class="block mt-5 text-sm font-semibold">Kondisi iklim</label>
+          <select id="pilih-iklim" class="isian mt-1">
+            <option value="">— Pilih kondisi —</option>
+            <option value="kemarau">Kemarau panjang</option>
+            <option value="hujan">Musim hujan lebat</option>
+            <option value="dingin">Dataran tinggi dingin</option>
+            <option value="panas">Perkotaan panas</option>
+          </select>
+          <!-- Ringkasan kondisi & tips adaptasi (diisi JS) -->
+          <div id="info-iklim" class="mt-5 text-sm text-tua/70" aria-live="polite">Belum ada kondisi dipilih.</div>
+        </div>
+
+        <div class="md:col-span-3 bg-segar/10 border border-segar/20 rounded-3xl p-6 md:p-8">
+          <h3 class="text-xl font-bold">Tanaman yang cocok untuk Anda</h3>
+          <div id="rekomendasi" class="mt-4 grid sm:grid-cols-2 gap-3" aria-live="polite">
+            <p class="text-sm text-tua/60 sm:col-span-2">Pilih kondisi iklim di sebelah kiri untuk melihat rekomendasi.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FITUR 2: KATALOG ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pb-14" id="katalog">
+      <h2 class="text-3xl font-extrabold">Katalog panduan urban farming</h2>
+      <p class="mt-2 text-tua/70">Cari tanaman, lalu saring sesuai luas lahan dan tingkat kesulitan.</p>
+
+      <div class="mt-6 grid md:grid-cols-4 gap-3 bg-white border border-tua/10 rounded-2xl p-4">
+        <div class="md:col-span-2">
+          <label for="cari" class="sr-only">Cari tanaman</label>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-tua/40"></i>
+            <input id="cari" type="search" placeholder="Cari nama tanaman atau metode…" class="isian pl-9" />
+          </div>
+        </div>
+        <div>
+          <label for="filter-lahan" class="sr-only">Luas lahan</label>
+          <select id="filter-lahan" class="isian">
+            <option value="">Semua luas lahan</option>
+            <option value="sempit">Sempit / balkon</option>
+            <option value="sedang">Sedang / teras</option>
+            <option value="luas">Luas / pekarangan</option>
+          </select>
+        </div>
+        <div>
+          <label for="filter-sulit" class="sr-only">Tingkat kesulitan</label>
+          <select id="filter-sulit" class="isian">
+            <option value="">Semua tingkat kesulitan</option>
+            <option value="mudah">Mudah</option>
+            <option value="sedang">Sedang</option>
+            <option value="sulit">Sulit</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between text-sm">
+        <p id="jumlah-hasil" class="text-tua/60" aria-live="polite"></p>
+        <button id="btn-reset-filter" type="button" class="font-semibold text-segar hover:underline">Atur ulang filter</button>
+      </div>
+      <div id="katalog-grid" class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ===================== FITUR 3: PELACAK TANAMAN ===================== -->
+    <section class="max-w-6xl mx-auto px-4 pb-20 scroll-mt-16" id="pelacak">
+      <h2 class="text-3xl font-extrabold">Tanaman rumahku</h2>
+      <p class="mt-2 text-tua/70">Catat tanaman yang Anda tanam. Data tersimpan di perangkat ini.</p>
+
+      <div class="mt-6 grid md:grid-cols-5 gap-6">
+        <!-- Form tambah tanaman -->
+        <form id="form-tanam" class="md:col-span-2 bg-white border border-tua/10 rounded-3xl p-6 space-y-4 self-start" novalidate>
+          <div>
+            <p class="block text-sm font-semibold mb-1">Tanaman dipilih</p>
+            <div id="chip-pilihan" class="flex flex-wrap gap-2" aria-live="polite"></div>
+          </div>
+          <div>
+            <label for="in-tanaman" class="block text-sm font-semibold mb-1">Tambah tanaman ke pilihan</label>
+            <select id="in-tanaman" class="isian"></select>
+          </div>
+          <div>
+            <label for="in-tanggal" class="block text-sm font-semibold mb-1">Tanggal tanam</label>
+            <input id="in-tanggal" type="date" class="isian" required />
+          </div>
+          <div>
+            <label for="in-lokasi" class="block text-sm font-semibold mb-1">Lokasi / catatan <span class="font-normal text-tua/50">(opsional)</span></label>
+            <input id="in-lokasi" type="text" maxlength="40" placeholder="Contoh: polybag balkon depan" class="isian" />
+          </div>
+          <p id="galat-form" class="text-sm text-red-700 hidden" role="alert"></p>
+          <button type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-tua text-white font-bold px-5 py-3 rounded-xl hover:brightness-110 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> Tambah ke tanamanku
+          </button>
+        </form>
+
+        <!-- Daftar + ringkasan -->
+        <div class="md:col-span-3">
+          <div id="ringkasan" class="grid grid-cols-3 gap-3 mb-4"></div>
+          <div id="daftar-tanam" class="space-y-3" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notifikasi singkat (toast) -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-tua text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl hidden z-50" role="status"></div>
+
+  <!-- ===================== FOOTER (seragam) ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Proyek</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- ===================== JAVASCRIPT MODULAR ===================== -->
+  <script>
+    'use strict';
+
+    /* ---------- DATA ---------- */
+
+    /**
+     * Basis data tanaman. Satu objek = satu tanaman.
+     * - lahan : 'sempit' | 'sedang' | 'luas'
+     * - sulit : 'mudah' | 'sedang' | 'sulit'
+     * - hari  : perkiraan lama tanam sampai panen (hari)
+     * - iklim : kondisi iklim yang cocok (kunci dari DATA_IKLIM)
+     */
+    const DATA_TANAMAN = [
+      { id: 'kangkung',  nama: 'Kangkung',        metode: 'Hidroponik / Polybag', lahan: 'sempit', sulit: 'mudah',  hari: 25,  iklim: ['hujan', 'panas'],     tip: 'Suka air dan matahari penuh. Panen dengan memotong, batang akan tumbuh lagi.' },
+      { id: 'bayam',     nama: 'Bayam',           metode: 'Polybag',              lahan: 'sempit', sulit: 'mudah',  hari: 30,  iklim: ['hujan', 'panas'],     tip: 'Tanam rapat di polybag lebar. Siram pagi dan sore.' },
+      { id: 'sawi',      nama: 'Sawi Pakcoy',     metode: 'Hidroponik',           lahan: 'sempit', sulit: 'mudah',  hari: 30,  iklim: ['dingin', 'hujan'],    tip: 'Cocok di sistem sumbu (wick). Ganti larutan nutrisi tiap 2 minggu.' },
+      { id: 'selada',    nama: 'Selada',          metode: 'Hidroponik',           lahan: 'sempit', sulit: 'sedang', hari: 35,  iklim: ['dingin'],             tip: 'Tidak tahan panas terik. Letakkan di tempat teduh terang.' },
+      { id: 'daunbawang',nama: 'Daun Bawang',     metode: 'Polybag',              lahan: 'sempit', sulit: 'mudah',  hari: 60,  iklim: ['dingin', 'hujan'],    tip: 'Bisa ditanam dari sisa akar dapur. Pastikan drainase baik.' },
+      { id: 'cabai',     nama: 'Cabai Rawit',     metode: 'Polybag',              lahan: 'sedang', sulit: 'sedang', hari: 90,  iklim: ['kemarau', 'panas'],   tip: 'Tahan panas. Beri pupuk kompos tiap 2 minggu dan jangan terlalu basah.' },
+      { id: 'terong',    nama: 'Terong Ungu',     metode: 'Polybag',              lahan: 'sedang', sulit: 'mudah',  hari: 80,  iklim: ['panas', 'kemarau'],   tip: 'Butuh sinar matahari 6 jam atau lebih. Beri ajir saat berbuah.' },
+      { id: 'tomat',     nama: 'Tomat Cherry',    metode: 'Polybag',              lahan: 'sedang', sulit: 'sedang', hari: 75,  iklim: ['dingin'],             tip: 'Pasang ajir dan buang tunas air supaya buah lebih besar.' },
+      { id: 'kacang',    nama: 'Kacang Panjang',  metode: 'Polybag / Lahan',      lahan: 'sedang', sulit: 'mudah',  hari: 60,  iklim: ['kemarau', 'panas'],   tip: 'Merambat, sediakan tiang atau tali. Tanaman ini juga menyuburkan tanah.' },
+      { id: 'jahe',      nama: 'Jahe',            metode: 'Polybag besar',        lahan: 'sedang', sulit: 'mudah',  hari: 240, iklim: ['hujan'],              tip: 'Butuh waktu lama tapi hampir tanpa perawatan. Tanam rimpang bermata tunas.' },
+      { id: 'singkong',  nama: 'Singkong',        metode: 'Lahan tanah',          lahan: 'luas',   sulit: 'mudah',  hari: 240, iklim: ['kemarau'],            tip: 'Sangat tahan kering. Sumber karbohidrat cadangan keluarga.' },
+      { id: 'ubijalar',  nama: 'Ubi Jalar',        metode: 'Lahan tanah',          lahan: 'luas',   sulit: 'mudah',  hari: 120, iklim: ['kemarau', 'hujan'],   tip: 'Tanam stek batang pada guludan. Daunnya juga bisa dimakan.' },
+      { id: 'jagung',    nama: 'Jagung Manis',    metode: 'Lahan tanah',          lahan: 'luas',   sulit: 'sedang', hari: 70,  iklim: ['kemarau'],            tip: 'Tanam berbaris minimal 3 baris agar penyerbukan sempurna.' },
+      { id: 'kentang',   nama: 'Kentang',         metode: 'Lahan / Karung',       lahan: 'luas',   sulit: 'sulit',  hari: 100, iklim: ['dingin'],             tip: 'Butuh suhu sejuk. Timbun tanah di pangkal batang agar umbi tidak hijau.' }
+    ];
+
+    /** Data kondisi iklim: judul, penjelasan, dan tips adaptasi. */
+    const DATA_IKLIM = {
+      kemarau: { judul: 'Kemarau panjang', ikon: 'sun', info: 'Air terbatas dan tanah cepat kering. Pilih tanaman tahan kering.',
+        tips: ['Beri mulsa jerami atau daun kering di permukaan tanah.', 'Siram pagi atau sore, bukan siang hari.', 'Tampung air bekas cucian sayur untuk menyiram.'] },
+      hujan:   { judul: 'Musim hujan lebat', ikon: 'cloud-rain', info: 'Tanah mudah becek dan jamur cepat tumbuh. Utamakan drainase.',
+        tips: ['Lubangi dasar polybag dan letakkan di tempat tinggi.', 'Pasang atap plastik sederhana di atas tanaman.', 'Singkirkan daun yang kuning agar jamur tidak menyebar.'] },
+      dingin:  { judul: 'Dataran tinggi dingin', ikon: 'mountain-snow', info: 'Suhu sejuk cocok untuk sayuran daun dan umbi, tetapi pertumbuhan lebih lambat.',
+        tips: ['Tanam di tempat yang kena sinar pagi.', 'Lindungi bibit dari embun beku dengan sungkup plastik.', 'Siram secukupnya karena penguapan rendah.'] },
+      panas:   { judul: 'Perkotaan panas', ikon: 'building-2', info: 'Beton memantulkan panas dan lahan sempit. Pakai wadah dan naungan.',
+        tips: ['Pasang paranet 50% untuk menahan sinar terik.', 'Susun pot secara vertikal untuk menghemat ruang.', 'Letakkan wadah air di dekat tanaman agar lembap.'] }
+    };
+
+    /** Label tampilan ukuran lahan (kunci: t.lahan). */
+    const LABEL_LAHAN = { sempit: 'Lahan sempit', sedang: 'Lahan sedang', luas: 'Lahan luas' };
+
+    /** Label tampilan tingkat kesulitan (kunci: t.sulit). Dipisah dari LABEL_LAHAN karena kunci "sedang" ada di keduanya. */
+    const LABEL_SULIT = { mudah: 'Mudah', sedang: 'Sedang', sulit: 'Sulit' };
+
+    /**
+     * Data hasil panen saat dimasukkan ke kulkas (stok Food Rescue):
+     * kategori (sesuai KATEGORI di foodrescue.html), satuan, dan perkiraan harga (Rp) untuk 1 satuan.
+     */
+    const HASIL_PANEN = {
+      kangkung:   { kategori: 'sayur',   satuan: 'ikat', harga: 4000 },
+      bayam:      { kategori: 'sayur',   satuan: 'ikat', harga: 5000 },
+      sawi:       { kategori: 'sayur',   satuan: 'ikat', harga: 6000 },
+      selada:     { kategori: 'sayur',   satuan: 'ikat', harga: 9000 },
+      daunbawang: { kategori: 'sayur',   satuan: 'ikat', harga: 5000 },
+      kacang:     { kategori: 'sayur',   satuan: 'ikat', harga: 8000 },
+      terong:     { kategori: 'sayur',   satuan: 'kg',   harga: 15000 },
+      tomat:      { kategori: 'sayur',   satuan: 'kg',   harga: 25000 },
+      cabai:      { kategori: 'lainnya', satuan: 'kg',   harga: 40000 },
+      jahe:       { kategori: 'lainnya', satuan: 'kg',   harga: 30000 },
+      singkong:   { kategori: 'karbo',   satuan: 'kg',   harga: 6000 },
+      ubijalar:   { kategori: 'karbo',   satuan: 'kg',   harga: 12000 },
+      jagung:     { kategori: 'karbo',   satuan: 'kg',   harga: 12000 },
+      kentang:    { kategori: 'karbo',   satuan: 'kg',   harga: 20000 }
+    };
+
+    /* ---------- MODUL UTILITAS ---------- */
+
+    /** Pembungkus LocalStorage aman (sama dengan halaman lain). */
+    const Penyimpanan = {
+      awalan: 'nusapangan:',
+      /** Mengambil data; mengembalikan `cadangan` bila kosong/rusak. */
+      ambil(kunci, cadangan) {
+        try { const m = localStorage.getItem(this.awalan + kunci); return m === null ? cadangan : JSON.parse(m); }
+        catch (e) { return cadangan; }
+      },
+      /** Menyimpan data (otomatis diubah ke JSON). @returns {boolean} false bila penyimpanan penuh/diblokir. */
+      simpan(kunci, nilai) {
+        try { localStorage.setItem(this.awalan + kunci, JSON.stringify(nilai)); return true; } catch (e) { return false; /* penyimpanan penuh/diblokir */ }
+      }
+    };
+
+    /** Fungsi bantu umum. */
+    const Util = {
+      /**
+       * Mengamankan teks dari penyisipan HTML (mencegah XSS dari isian pengguna).
+       * @param {string} teks
+       * @returns {string} teks aman
+       */
+      esc(teks) {
+        const d = document.createElement('div');
+        d.textContent = teks;
+        return d.innerHTML;
+      },
+      /** Mencari tanaman berdasarkan id. */
+      cari(id) { return DATA_TANAMAN.find(t => t.id === id); },
+      /** Tanggal hari ini format YYYY-MM-DD (zona waktu lokal). */
+      hariIni() { return new Date().toLocaleDateString('en-CA'); },
+      /** Tanggal hari ini + `n` hari, format YYYY-MM-DD (zona waktu lokal). */
+      tanggalKe(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); },
+      /** Selisih hari antara tanggal tanam (YYYY-MM-DD) dan hari ini. */
+      hariBerlalu(tanggal) {
+        const mulai = new Date(tanggal + 'T00:00:00');
+        const sekarang = new Date(this.hariIni() + 'T00:00:00');
+        return Math.max(0, Math.round((sekarang - mulai) / 86400000));
+      },
+      /**
+       * Menampilkan notifikasi singkat selama 2,5 detik. Memakai toast terpusat
+       * NusaPangan.toast (app.js) bila tersedia; bila tidak, memakai elemen #toast sendiri.
+       */
+      toast(pesan) {
+        if (window.NusaPangan && typeof window.NusaPangan.toast === 'function') { window.NusaPangan.toast(pesan); return; }
+        const el = document.getElementById('toast');
+        el.textContent = pesan;
+        el.classList.remove('hidden');
+        clearTimeout(this._t);
+        this._t = setTimeout(() => el.classList.add('hidden'), 2500);
+      },
+      /**
+       * Membuat HTML kartu tanaman (dipakai oleh rekomendasi & katalog).
+       * @param {object} t - objek tanaman
+       * @returns {string} HTML kartu
+       */
+      kartu(t) {
+        return `
+          <article class="bg-white border border-tua/10 rounded-2xl p-5 flex flex-col">
+            <div class="flex items-start justify-between gap-2">
+              <h4 class="font-bold text-lg">${t.nama}</h4>
+              <span class="text-xs font-semibold bg-panen/25 rounded-full px-2.5 py-1 whitespace-nowrap">${t.hari} hari</span>
+            </div>
+            <p class="text-xs text-tua/60 mt-1">${t.metode}</p>
+            <div class="mt-3 flex flex-wrap gap-1.5 text-xs font-semibold">
+              <span class="bg-segar/15 text-tua rounded-full px-2.5 py-1">${LABEL_LAHAN[t.lahan]}</span>
+              <span class="bg-tua/10 rounded-full px-2.5 py-1">${LABEL_SULIT[t.sulit]}</span>
+            </div>
+            <p class="mt-3 text-sm text-tua/70 leading-relaxed flex-1">${t.tip}</p>
+            <button type="button" data-tanam="${t.id}" aria-pressed="false" class="mt-4 inline-flex justify-center items-center gap-2 bg-segar text-white text-sm font-bold px-4 py-2 rounded-xl hover:brightness-110 transition">
+              <i data-lucide="sprout" class="w-4 h-4"></i> <span>Tanam ini</span>
+            </button>
+          </article>`;
+      }
+    };
+
+    /* ---------- MODUL NAVIGASI ---------- */
+
+    /** Menandai halaman aktif dan mengatur menu mobile. */
+    const Navigasi = {
+      init() {
+        const halaman = location.pathname.split('/').pop() || 'index.html';
+        document.querySelectorAll('[data-nav]').forEach(a => {
+          if (a.dataset.nav === halaman) {
+            a.classList.add('bg-tua', 'text-white');
+            a.classList.remove('hover:bg-tua/5');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+        const tombol = document.getElementById('btn-menu');
+        const menu = document.getElementById('menu-mobile');
+        tombol.addEventListener('click', () => {
+          const terbuka = menu.classList.toggle('hidden') === false;
+          tombol.setAttribute('aria-expanded', String(terbuka));
+        });
+      }
+    };
+
+    /* ---------- FITUR 1: SIMULASI IKLIM ---------- */
+
+    /** Menampilkan tips adaptasi & rekomendasi tanaman sesuai iklim. */
+    const Iklim = {
+      /**
+       * Menampilkan info dan rekomendasi untuk satu kondisi iklim.
+       * @param {string} kunci - kunci DATA_IKLIM atau '' untuk mengosongkan
+       */
+      tampilkan(kunci) {
+        const info = document.getElementById('info-iklim');
+        const rek = document.getElementById('rekomendasi');
+        const data = DATA_IKLIM[kunci];
+
+        if (!data) {
+          info.textContent = 'Belum ada kondisi dipilih.';
+          rek.innerHTML = '<p class="text-sm text-tua/60 sm:col-span-2">Pilih kondisi iklim di sebelah kiri untuk melihat rekomendasi.</p>';
+          Penyimpanan.simpan('iklim', '');
+          return;
+        }
+
+        info.innerHTML = `
+          <p class="flex items-center gap-2 font-bold text-tua"><i data-lucide="${data.ikon}" class="w-5 h-5 text-segar"></i> ${data.judul}</p>
+          <p class="mt-2 leading-relaxed">${data.info}</p>
+          <p class="mt-3 font-semibold text-tua">Tips adaptasi:</p>
+          <ul class="mt-1 list-disc pl-5 space-y-1">${data.tips.map(t => `<li>${t}</li>`).join('')}</ul>`;
+
+        const cocok = DATA_TANAMAN.filter(t => t.iklim.includes(kunci));
+        rek.innerHTML = cocok.map(t => Util.kartu(t)).join('');
+        Penyimpanan.simpan('iklim', kunci);
+        Pelacak.sinkronPilihan(); // sinkronkan tombol "Dipilih" (sekaligus lucide.createIcons)
+      },
+
+      /** Memasang event dropdown dan memulihkan pilihan terakhir. */
+      init() {
+        const select = document.getElementById('pilih-iklim');
+        select.addEventListener('change', () => this.tampilkan(select.value));
+        const tersimpan = Penyimpanan.ambil('iklim', '');
+        select.value = tersimpan;
+        this.tampilkan(tersimpan);
+      }
+    };
+
+    /* ---------- FITUR 2: KATALOG ---------- */
+
+    /** Katalog tanaman dengan pencarian dan dua filter. */
+    const Katalog = {
+      /** Menyaring DATA_TANAMAN sesuai isian pencarian & filter, lalu menggambar kartu. */
+      render() {
+        const kata = document.getElementById('cari').value.trim().toLowerCase();
+        const lahan = document.getElementById('filter-lahan').value;
+        const sulit = document.getElementById('filter-sulit').value;
+
+        const hasil = DATA_TANAMAN.filter(t =>
+          (!kata  || (t.nama + ' ' + t.metode).toLowerCase().includes(kata)) &&
+          (!lahan || t.lahan === lahan) &&
+          (!sulit || t.sulit === sulit));
+
+        document.getElementById('jumlah-hasil').textContent = `Menampilkan ${hasil.length} dari ${DATA_TANAMAN.length} tanaman`;
+        document.getElementById('katalog-grid').innerHTML = hasil.length
+          ? hasil.map(t => Util.kartu(t)).join('')
+          : '<p class="sm:col-span-2 lg:col-span-3 text-center text-tua/60 py-10">Tidak ada tanaman yang cocok. Coba ubah kata kunci atau filter.</p>';
+        Pelacak.sinkronPilihan(); // sinkronkan tombol "Dipilih" (sekaligus lucide.createIcons)
+      },
+
+      /** Mengosongkan semua filter. */
+      aturUlang() {
+        document.getElementById('cari').value = '';
+        document.getElementById('filter-lahan').value = '';
+        document.getElementById('filter-sulit').value = '';
+        this.render();
+      },
+
+      init() {
+        ['cari', 'filter-lahan', 'filter-sulit'].forEach(id => {
+          document.getElementById(id).addEventListener('input', () => this.render());
+        });
+        document.getElementById('btn-reset-filter').addEventListener('click', () => this.aturUlang());
+        this.render();
+      }
+    };
+
+    /* ---------- FITUR 3: PELACAK TANAMAN ---------- */
+
+    /** Pelacak tanaman pengguna: tambah, hitung progres panen, tandai dipanen, hapus. */
+    const Pelacak = {
+      /** Daftar tanaman pengguna (dimuat dari LocalStorage). */
+      daftar: [],
+
+      /** Id tanaman yang dipilih untuk ditambahkan sekaligus. */
+      pilihan: new Set(),
+
+      /** Menyimpan daftar ke LocalStorage lalu menggambar ulang tampilan. */
+      simpanLaluRender() {
+        Penyimpanan.simpan('tanamanku', this.daftar);
+        this.render();
+      },
+
+      /**
+       * Memproses pengiriman form: validasi, lalu menambah tanaman baru.
+       * @param {Event} e - event submit
+       */
+      tambah(e) {
+        e.preventDefault();
+        const tanggal = document.getElementById('in-tanggal').value;
+        const lokasi = document.getElementById('in-lokasi').value.trim();
+        const galat = document.getElementById('galat-form');
+
+        if (!this.pilihan.size) { galat.textContent = 'Pilih minimal satu tanaman.'; galat.classList.remove('hidden'); return; }
+        if (!tanggal) { galat.textContent = 'Isi tanggal tanam.'; galat.classList.remove('hidden'); return; }
+        if (tanggal > Util.hariIni()) { galat.textContent = 'Tanggal tanam tidak boleh di masa depan.'; galat.classList.remove('hidden'); return; }
+        galat.classList.add('hidden');
+
+        const ids = [...this.pilihan];
+        const dasar = Date.now();
+        // uid unik per tanaman (dasar + indeks); urutan daftar mengikuti urutan pilihan
+        ids.slice().reverse().forEach((id, i) => {
+          this.daftar.unshift({ uid: dasar + (ids.length - 1 - i), id, tanggal, lokasi, dipanen: false });
+        });
+
+        this.pilihan.clear();
+        this.simpanLaluRender();
+        this.sinkronPilihan();
+        document.getElementById('in-lokasi').value = '';
+        Util.toast(ids.length > 1 ? `${ids.length} tanaman ditambahkan ke tanamanku` : `${Util.cari(ids[0]).nama} ditambahkan ke tanamanku`);
+      },
+
+      /** Menandai tanaman sudah dipanen. @param {number} uid */
+      panen(uid) {
+        const item = this.daftar.find(x => x.uid === uid);
+        if (item) { item.dipanen = true; this.simpanLaluRender(); Util.toast('Selamat panen!'); }
+      },
+
+      /**
+       * Memasukkan hasil panen ke stok Food Rescue (nusapangan:stokPangan):
+       * 1 satuan, kedaluwarsa 7 hari dari hari ini, kategori & harga dari HASIL_PANEN.
+       * Tanaman ditandai masukKulkas agar tidak bisa dimasukkan dua kali.
+       * @param {number} uid - id unik tanaman
+       */
+      masukKulkas(uid) {
+        const item = this.daftar.find(x => x.uid === uid);
+        const t = item && Util.cari(item.id);
+        if (!item || !t || !item.dipanen || item.masukKulkas) return;
+        const h = HASIL_PANEN[item.id] || { kategori: 'sayur', satuan: 'ikat', harga: 6000 };
+
+        // Pastikan data contoh kulkas sudah disiapkan (agar tidak tertimpa saat Food Rescue dibuka pertama kali)
+        if (window.NusaPangan && window.NusaPangan.DataAwal) window.NusaPangan.DataAwal.isi();
+        const baca = Penyimpanan.ambil('stokPangan', []);
+        const stok = Array.isArray(baca) ? baca : [];
+        stok.push({ uid: Date.now(), nama: t.nama, jumlah: 1, satuan: h.satuan, kategori: h.kategori, exp: Util.tanggalKe(7), harga: h.harga });
+        if (!Penyimpanan.simpan('stokPangan', stok)) { Util.toast('Penyimpanan penuh. Hapus data lama terlebih dahulu.'); return; }
+
+        item.masukKulkas = true;
+        this.simpanLaluRender();
+        Util.toast('Hasil panen masuk ke stok Food Rescue!');
+      },
+
+      /** Menghapus tanaman dari daftar. @param {number} uid */
+      hapus(uid) {
+        if (!confirm('Hapus tanaman ini dari daftar?')) return;
+        this.daftar = this.daftar.filter(x => x.uid !== uid);
+        this.simpanLaluRender();
+        Util.toast('Tanaman dihapus');
+      },
+
+      /**
+       * Memilih/membatalkan pilihan tanaman (toggle) tanpa auto-scroll.
+       * Dipanggil dari tombol "Tanam ini" pada kartu.
+       * @param {string} id - id tanaman
+       */
+      pilihDiForm(id) {
+        if (!Util.cari(id)) return;
+        if (this.pilihan.has(id)) this.pilihan.delete(id); else this.pilihan.add(id);
+        this.sinkronPilihan();
+      },
+
+      /** Menyelaraskan tombol kartu, chip, dan dropdown dengan Pelacak.pilihan. */
+      sinkronPilihan() {
+        document.querySelectorAll('[data-tanam]').forEach(b => {
+          const aktif = this.pilihan.has(b.dataset.tanam);
+          b.setAttribute('aria-pressed', String(aktif));
+          b.classList.toggle('bg-segar', !aktif);
+          b.classList.toggle('text-white', !aktif);
+          b.classList.toggle('bg-panen', aktif);
+          b.classList.toggle('text-tua', aktif);
+          b.innerHTML = aktif
+            ? '✓ <span>Dipilih (klik untuk batal)</span>'
+            : '<i data-lucide="sprout" class="w-4 h-4"></i> <span>Tanam ini</span>';
+        });
+
+        const wadah = document.getElementById('chip-pilihan');
+        wadah.innerHTML = this.pilihan.size
+          ? [...this.pilihan].map(id => {
+              const nama = Util.esc(Util.cari(id).nama);
+              return `<span class="inline-flex items-center gap-1.5 bg-panen/30 text-tua text-sm font-semibold rounded-full pl-3 pr-1.5 py-1">${nama}
+                <button type="button" data-lepas="${id}" class="w-5 h-5 rounded-full grid place-items-center hover:bg-tua/10" aria-label="Batalkan pilihan ${nama}">✕</button></span>`;
+            }).join('')
+          : '<p class="text-sm text-tua/50">Belum ada. Klik "Tanam ini" pada kartu atau pilih dari daftar di bawah.</p>';
+
+        document.getElementById('in-tanaman').value = '';
+        lucide.createIcons();
+      },
+
+      /** Menggambar ringkasan angka dan daftar tanaman beserta progress bar. */
+      render() {
+        const aktif = this.daftar.filter(x => !x.dipanen);
+        const siap = aktif.filter(x => Util.hariBerlalu(x.tanggal) >= Util.cari(x.id).hari).length;
+        const sudah = this.daftar.length - aktif.length;
+
+        document.getElementById('ringkasan').innerHTML = [
+          ['Sedang tumbuh', aktif.length - siap, 'bg-white'],
+          ['Siap panen', siap, 'bg-panen/30'],
+          ['Sudah dipanen', sudah, 'bg-segar/15']
+        ].map(([label, n, bg]) => `
+          <div class="${bg} border border-tua/10 rounded-2xl p-4 text-center">
+            <p class="text-3xl font-extrabold">${n}</p><p class="text-xs mt-1 text-tua/70">${label}</p>
+          </div>`).join('');
+
+        const wadah = document.getElementById('daftar-tanam');
+        if (!this.daftar.length) {
+          wadah.innerHTML = `
+            <div class="bg-white border border-dashed border-tua/20 rounded-2xl p-8 text-center text-sm text-tua/60">
+              Belum ada tanaman. Isi form di samping atau klik "Tanam ini" pada kartu tanaman.
+            </div>`;
+          return;
+        }
+
+        wadah.innerHTML = this.daftar.map(x => {
+          const t = Util.cari(x.id);
+          const berlalu = Util.hariBerlalu(x.tanggal);
+          const persen = x.dipanen ? 100 : Math.min(100, Math.round(berlalu / t.hari * 100));
+          const siapPanen = !x.dipanen && berlalu >= t.hari;
+          const sisa = Math.max(0, t.hari - berlalu);
+          const status = x.dipanen ? 'Sudah dipanen' : siapPanen ? 'Siap dipanen!' : `${sisa} hari lagi`;
+          const warna = x.dipanen ? 'bg-tua' : siapPanen ? 'bg-panen' : 'bg-segar';
+
+          return `
+            <article class="bg-white border border-tua/10 rounded-2xl p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h4 class="font-bold text-lg">${t.nama}</h4>
+                  <p class="text-xs text-tua/60">Ditanam ${new Date(x.tanggal + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}${x.lokasi ? ' · ' + Util.esc(x.lokasi) : ''}</p>
+                </div>
+                <span class="text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap ${siapPanen ? 'bg-panen text-tua' : 'bg-tua/10'}">${status}</span>
+              </div>
+              <div class="mt-4 h-3 rounded-full bg-tua/10 overflow-hidden" role="progressbar" aria-valuenow="${persen}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres menuju panen ${t.nama}">
+                <div class="h-full ${warna} rounded-full transition-all" style="width:${persen}%"></div>
+              </div>
+              <div class="mt-1 flex justify-between text-xs text-tua/60"><span>Hari ke-${Math.min(berlalu, t.hari)} dari ${t.hari}</span><span>${persen}%</span></div>
+              <div class="mt-4 flex gap-2">
+                ${!x.dipanen
+                  ? `<button type="button" data-panen="${x.uid}" class="inline-flex items-center gap-1.5 text-sm font-bold bg-tua text-white px-4 py-2 rounded-xl hover:brightness-110"><i data-lucide="check" class="w-4 h-4"></i> Tandai dipanen</button>`
+                  : x.masukKulkas
+                    ? `<span class="inline-flex items-center gap-1.5 text-sm font-bold bg-segar/15 text-tua rounded-xl px-4 py-2">✓ Sudah di kulkas</span>`
+                    : `<button type="button" data-masuk-kulkas="${x.uid}" class="inline-flex items-center gap-1.5 text-sm font-bold bg-panen text-tua px-4 py-2 rounded-xl hover:brightness-110"><i data-lucide="refrigerator" class="w-4 h-4"></i> Masukkan ke Kulkas</button>`}
+                <button type="button" data-hapus="${x.uid}" class="inline-flex items-center gap-1.5 text-sm font-semibold border border-tua/20 px-4 py-2 rounded-xl hover:bg-tua/5"><i data-lucide="trash-2" class="w-4 h-4"></i> Hapus</button>
+              </div>
+            </article>`;
+        }).join('');
+        lucide.createIcons();
+      },
+
+      init() {
+        // Isi dropdown jenis tanaman dari DATA_TANAMAN
+        document.getElementById('in-tanaman').innerHTML =
+          '<option value="">— Pilih tanaman —</option>' +
+          DATA_TANAMAN.map(t => `<option value="${t.id}">${t.nama} (${t.hari} hari)</option>`).join('');
+        document.getElementById('in-tanggal').value = Util.hariIni();
+        document.getElementById('in-tanggal').max = Util.hariIni();
+
+        this.daftar = Penyimpanan.ambil('tanamanku', []);
+        document.getElementById('form-tanam').addEventListener('submit', e => this.tambah(e));
+        // Dropdown: memilih tanaman = menambahkannya ke pilihan
+        document.getElementById('in-tanaman').addEventListener('change', e => {
+          const id = e.target.value;
+          if (id) { this.pilihan.add(id); this.sinkronPilihan(); }
+        });
+        // Tombol ✕ pada chip pilihan
+        document.getElementById('chip-pilihan').addEventListener('click', e => {
+          const b = e.target.closest('[data-lepas]');
+          if (b) { this.pilihan.delete(b.dataset.lepas); this.sinkronPilihan(); }
+        });
+        this.sinkronPilihan();
+
+        // Delegasi event: satu listener menangani semua tombol di daftar
+        document.getElementById('daftar-tanam').addEventListener('click', e => {
+          const p = e.target.closest('[data-panen]');
+          const k = e.target.closest('[data-masuk-kulkas]');
+          const h = e.target.closest('[data-hapus]');
+          if (p) this.panen(Number(p.dataset.panen));
+          if (k) this.masukKulkas(Number(k.dataset.masukKulkas));
+          if (h) this.hapus(Number(h.dataset.hapus));
+        });
+        this.render();
+      }
+    };
+
+    /** Titik masuk: dijalankan setelah HTML selesai dimuat. */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tahun').textContent = new Date().getFullYear();
+      Navigasi.init();
+      Pelacak.init();
+      Iklim.init();
+      Katalog.init();
+
+      // Delegasi global: semua tombol "Tanam ini" (rekomendasi & katalog)
+      document.addEventListener('click', e => {
+        const b = e.target.closest('[data-tanam]');
+        if (b) Pelacak.pilihDiForm(b.dataset.tanam);
+      });
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

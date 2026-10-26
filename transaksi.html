@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  NusaPangan-Market — Daftar Transaksi
+  Halaman  : transaksi.html
+  Fitur    : 1) Navbar seragam: dropdown Market, keranjang, lonceng notifikasi (notif.js)
+             2) Layout 2 kolom: sidebar akun (profil, PLUS, NusaPay + Top Up, voucher, akordeon) + daftar transaksi
+             3) Auto-seed 3 transaksi contoh ke LocalStorage "nusapangan:riwayatBelanja"
+             4) Filter: pencarian invoice/produk/kelompok tani, kategori, rentang tanggal, status, tahap (?tahap=)
+             5) Kartu transaksi: Lihat Detail Transaksi (struk invoice), Ulas, Beli Lagi, menu titik tiga
+  Tautan   : transaksi.html            -> semua transaksi
+             transaksi.html?tahap=dikirim   (konfirmasi | diproses | dikirim | sampai)
+             transaksi.html?status=selesai  (berlangsung | selesai | dibatalkan)
+             transaksi.html?tahap=dikirim&invoice=NPM-XXXX  (fokus ke satu kartu)
+  Skrip    : app.js (bersama) -> transaksi.js (gabungan market-core + akun-transaksi + notif)
+  Catatan  : Data transaksi, saldo, dan voucher adalah SIMULASI untuk demo.
+  ============================================================
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daftar Transaksi — NusaPangan-Market</title>
+  <link rel="icon" type="image/png" href="logos.png" />
+  <meta name="description" content="Pantau pesanan pangan Anda di NusaPangan: menunggu konfirmasi, diproses, dikirim, hingga sampai tujuan." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Tema warna NusaPangan (harus sama di semua halaman) */
+    tailwind.config = {
+      theme: { extend: {
+        colors: { tua: '#1B4332', segar: '#40916C', krem: '#F8F9FA', panen: '#F4A261' },
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+      } }
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :focus-visible { outline: 3px solid #F4A261; outline-offset: 2px; }
+    html { scroll-behavior: smooth; scrollbar-gutter: stable; }
+    html:has(dialog[open]) { overflow: hidden; }
+    .pola-titik { background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+
+    /* ---------- Dropdown menu Market (murni CSS: hover & fokus keyboard) ---------- */
+    .dd-panel { opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .2s, transform .2s, visibility 0s .2s; }
+    .dd:hover .dd-panel, .dd:focus-within .dd-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+    .dd-caret { transition: transform .2s; }
+    .dd:hover .dd-caret, .dd:focus-within .dd-caret { transform: rotate(180deg); }
+
+    /* ---------- Dialog bersama (<dialog> asli: fokus terkunci & Esc otomatis) ---------- */
+    dialog.dlg { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(10,20,15,.6); color: inherit; }
+    dialog#modal-keranjang[open] { display: flex; align-items: flex-end; justify-content: center; }
+    dialog#modal-detail[open] { display: grid; place-items: center; padding: 1rem; }
+    .panel-k { width: 100%; max-height: 90vh; display: flex; flex-direction: column; animation: panel-masuk .3s var(--ah-ease, ease) backwards; }
+    .panel-d { position: relative; width: min(100%, 56rem); max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); display: flex; flex-direction: column; overflow: hidden; animation: panel-tengah .3s var(--ah-ease, ease) backwards; }
+    #isi-detail { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+    @keyframes panel-masuk { from { opacity: 0; transform: translateY(32px); } }
+    @keyframes panel-tengah { from { opacity: 0; transform: translateY(24px) scale(.97); } }
+    .menutup .panel-k, .menutup .panel-d { animation: panel-keluar .18s ease forwards; }
+    @keyframes panel-keluar { to { opacity: 0; transform: translateY(24px); } }
+    @media (min-width: 768px) {
+      dialog#modal-keranjang[open] { align-items: stretch; justify-content: flex-end; }
+      .panel-k { width: 28rem; max-height: none; height: 100%; }
+    }
+
+    /* ---------- Mikro-interaksi tambah ke keranjang ---------- */
+    .denyut, button.tb-ok { animation: denyut .6s cubic-bezier(.2,.8,.2,1); }
+    button.tb-ok { background-color: #1B4332; }
+    button.tb-ok:disabled { opacity: 1; }
+    @keyframes denyut { 0% { box-shadow: 0 0 0 0 rgba(244,162,97,.8); transform: scale(.96); } 35% { transform: scale(1.04); } 100% { box-shadow: 0 0 0 14px rgba(244,162,97,0); transform: none; } }
+    .badge-pantul { animation: badge-pantul .6s cubic-bezier(.3,.7,.4,1); }
+    @keyframes badge-pantul { 0% { transform: scale(.4); } 35% { transform: scale(1.7); } 60% { transform: scale(.85); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    .kereta-goyang svg { transform-origin: 50% 80%; animation: kereta-goyang .6s ease; }
+    @keyframes kereta-goyang { 0%, 100% { transform: none; } 25% { transform: rotate(-14deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-5deg); } }
+
+    /* ---------- Dashboard Akun: token warna (terang & gelap) ---------- */
+    :root {
+      --mk-surface: #ffffff; --mk-surface-2: #F8F9FA; --mk-border: rgba(27,67,50,.12);
+      --mk-teks: #1B4332;    --mk-muted: rgba(27,67,50,.65);
+    }
+    html.dark {
+      --mk-surface: #12261d; --mk-surface-2: #0e1c15; --mk-border: rgba(255,255,255,.12);
+      --mk-teks: #E8F3EC;    --mk-muted: rgba(232,243,236,.68);
+    }
+    .mk-card  { background: var(--mk-surface); color: var(--mk-teks); border: 1px solid var(--mk-border); border-radius: 1rem; }
+    .mk-muted { color: var(--mk-muted); }
+    .mk-garis { border-color: var(--mk-border); }
+
+    /* Item menu & tombol sekunder */
+    .mk-item { display: flex; align-items: center; gap: .625rem; width: 100%; padding: .5rem .75rem; border-radius: .625rem; font-size: .875rem; font-weight: 600; text-align: left; color: inherit; transition: background-color .2s, color .2s; }
+    .mk-item:hover { background: rgba(64,145,108,.12); }
+    .mk-item[aria-current="true"] { background: rgba(64,145,108,.18); color: #40916C; }
+    .mk-btn-garis { border: 1px solid var(--mk-border); border-radius: .75rem; font-weight: 700; font-size: .875rem; padding: .5rem .75rem; color: inherit; transition: background-color .2s; }
+    .mk-btn-garis:hover { background: rgba(64,145,108,.12); }
+
+    /* Akordeon: tinggi dianimasikan lewat grid-template-rows (tanpa JS ukur tinggi) */
+    .mk-acc { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
+    .mk-acc[data-buka="true"] { grid-template-rows: 1fr; }
+    .mk-acc > div { overflow: hidden; min-height: 0; }
+    .mk-chev { transition: transform .25s ease; }
+    [aria-expanded="true"] .mk-chev { transform: rotate(180deg); }
+
+    /* Voucher bergaya tiket */
+    .mk-tiket { position: relative; border: 1px dashed rgba(64,145,108,.55); border-left: 4px solid #F4A261; border-radius: .75rem; background: var(--mk-surface-2); }
+
+    /* Filter transaksi */
+    .mk-input { width: 100%; background: var(--mk-surface); color: var(--mk-teks); border: 1px solid var(--mk-border); border-radius: .75rem; padding: .625rem .75rem; font-size: .875rem; }
+    .mk-input:focus { border-color: #40916C; }
+    .mk-chip { border: 1px solid var(--mk-border); border-radius: 9999px; padding: .375rem .875rem; font-size: .875rem; font-weight: 600; color: inherit; transition: background-color .2s, color .2s, border-color .2s; }
+    .mk-chip:hover { background: rgba(64,145,108,.12); }
+    .mk-chip[aria-pressed="true"] { background: #1B4332; border-color: #1B4332; color: #fff; }
+    html.dark .mk-chip[aria-pressed="true"] { background: #40916C; border-color: #40916C; }
+
+    /* Skeleton loading */
+    .mk-shimmer { border-radius: .5rem; background: linear-gradient(90deg, var(--mk-surface-2) 25%, rgba(64,145,108,.18) 50%, var(--mk-surface-2) 75%); background-size: 200% 100%; animation: mk-shimmer 1.4s linear infinite; }
+    @keyframes mk-shimmer { to { background-position: -200% 0; } }
+
+    /* ---------- Daftar Transaksi: kartu, badge status, tombol ---------- */
+    .mk-sub { background: var(--mk-surface-2); }
+    .mk-aksen { color: #2d6a4f; }
+    html.dark .mk-aksen { color: #95D5B2; }
+    html.dark .mk-input { color-scheme: dark; }
+
+    .mk-badge { display: inline-flex; align-items: center; gap: .25rem; border-radius: 9999px; padding: .125rem .625rem; font-size: .75rem; font-weight: 800; }
+    .mk-badge-berlangsung { background: rgba(244,162,97,.22); color: #9a4f10; }
+    .mk-badge-selesai     { background: rgba(64,145,108,.18); color: #1B4332; }
+    .mk-badge-dibatalkan  { background: rgba(220,38,38,.12);  color: #b91c1c; }
+    html.dark .mk-badge-berlangsung { background: rgba(244,162,97,.20); color: #F4A261; }
+    html.dark .mk-badge-selesai     { background: rgba(64,145,108,.30); color: #95D5B2; }
+    html.dark .mk-badge-dibatalkan  { background: rgba(248,113,113,.18); color: #fca5a5; }
+
+    .mk-thumb { position: relative; flex-shrink: 0; width: 3.5rem; height: 3.5rem; display: grid; place-items: center; overflow: hidden; border-radius: .75rem; background: rgba(64,145,108,.12); font-size: 1.75rem; }
+    .mk-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+    .mk-ringkas { list-style: none; cursor: pointer; }
+    .mk-ringkas::-webkit-details-marker { display: none; }
+    details[open] > .mk-ringkas .mk-chev { transform: rotate(180deg); }
+
+    .mk-btn-utama { background: #1B4332; color: #fff; border-radius: .75rem; font-weight: 700; font-size: .875rem; padding: .5rem 1rem; transition: filter .2s; }
+    .mk-btn-utama:hover { filter: brightness(1.15); }
+    html.dark .mk-btn-utama { background: #40916C; }
+
+
+
+    /* ---------- Area scroll daftar transaksi ---------- */
+    #trx-daftar { height: auto; max-height: max(34rem, 85vh); max-height: max(34rem, 85dvh); min-height: 12rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scroll-snap-type: y proximity; scroll-padding-top: 4px; padding: 4px .75rem 4px 4px; margin-right: -.25rem; scrollbar-width: thin; scrollbar-color: rgba(64,145,108,.6) transparent; }
+    #trx-list > li, #trx-list > * { scroll-snap-align: start; }
+    /* Desktop: tinggi kotak transaksi disamakan dengan sidebar kiri (Kotak Masuk, dst.); daftar di dalamnya di-scroll */
+    @media (min-width: 1024px) {
+      #area-transaksi { align-self: stretch; display: flex; flex-direction: column; }
+      #area-transaksi > .mk-card { flex: 1 1 0px; min-height: 0; display: flex; flex-direction: column; }
+      #area-transaksi > .mk-card > :not(#trx-daftar) { flex-shrink: 0; }
+      #trx-daftar { flex: 1 1 0px; min-height: 0; max-height: none; }
+    }
+    #trx-daftar::-webkit-scrollbar { width: 8px; }
+    #trx-daftar::-webkit-scrollbar-thumb { background: rgba(64,145,108,.6); border-radius: 999px; }
+    #trx-daftar::-webkit-scrollbar-thumb:hover { background: rgba(64,145,108,.85); }
+    #trx-daftar::-webkit-scrollbar-track { background: transparent; }
+
+    /* ---------- Modal Invoice & Ulasan, menu titik tiga, bintang rating ---------- */
+    dialog#modal-invoice[open], dialog#modal-ulas[open] { display: flex !important; align-items: center; justify-content: center; padding: 1rem; overflow: hidden !important; box-sizing: border-box; }
+    /* Panel modal: tinggi dibatasi pasti (bukan hanya max-height) agar area isi selalu menjadi satu-satunya yang bisa di-scroll */
+    .panel-m { width: min(100%, 36rem); max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); display: flex !important; flex-direction: column; overflow: hidden !important; box-sizing: border-box; animation: panel-tengah .3s var(--ah-ease, ease) backwards; }
+    .menutup .panel-m { animation: panel-keluar .18s ease forwards; }
+    .panel-m > :not(.isi-m) { flex: 0 0 auto; }
+    /* Area isi = scroll sendiri. flex-basis 0 + min-height 0 membuatnya menyusut mengikuti sisa tinggi panel */
+    .panel-m .isi-m { flex: 1 1 0% !important; min-height: 0 !important; height: auto; overflow-x: hidden !important; overflow-y: scroll !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: rgba(64,145,108,.6) transparent; }
+    .panel-m .isi-m::-webkit-scrollbar { width: 8px; }
+    .panel-m .isi-m::-webkit-scrollbar-thumb { background: rgba(64,145,108,.6); border-radius: 999px; }
+    .panel-m .isi-m::-webkit-scrollbar-track { background: transparent; }
+    /* Tombol Tutup di dasar rincian invoice tetap terlihat saat di-scroll */
+    #isi-invoice .invoice-aksi { position: sticky; bottom: 0; z-index: 1; margin: 1rem -1.25rem -1.25rem; padding: .75rem 1.25rem 1.25rem; background: var(--mk-surface); border-top: 1px solid var(--mk-border); }
+    #trx-menu { position: fixed; z-index: 60; min-width: 15rem; padding: .375rem; background: var(--mk-surface); color: var(--mk-teks); border: 1px solid var(--mk-border); border-radius: .875rem; box-shadow: 0 12px 32px rgba(0,0,0,.22); }
+    /* Rating bintang. Spesifisitas .on SENGAJA lebih tinggi dari aturan gelap (html.dark ...) agar bintang menyala di kedua tema. */
+    .bintang { display: flex; gap: .125rem; }
+    .bintang input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .bintang label { cursor: pointer; font-size: 1.75rem; line-height: 1; padding: .125rem; color: #9CA3AF; transition: transform .15s, color .25s, text-shadow .25s; }
+    html.dark .bintang label { color: #B6C2BB; }
+    .bintang label:hover { transform: scale(1.18); }
+    .bintang label.on, html.dark .bintang label.on { color: #F4A261; text-shadow: 0 0 10px rgba(244,162,97,.45); animation: bintang-pop .3s cubic-bezier(.3,.7,.4,1); }
+    @keyframes bintang-pop { 0% { transform: scale(.7); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .bintang input:focus-visible + label { outline: 3px solid #F4A261; border-radius: .375rem; }
+
+    /* ---------- Notifikasi navbar: popup & tab ---------- */
+    .notif-panel { animation: notif-masuk .2s var(--ah-ease, ease) backwards; }
+    @keyframes notif-masuk { from { opacity: 0; transform: translateY(-6px); } }
+    .notif-tab { padding: .625rem .75rem; font-size: .875rem; font-weight: 700; color: var(--mk-muted); border-bottom: 2px solid transparent; transition: color .2s, border-color .2s, background-color .2s; }
+    .notif-tab:hover { background: rgba(64,145,108,.1); }
+    .notif-tab[aria-selected="true"] { color: #40916C; border-bottom-color: #40916C; }
+
+    /* Aksesibilitas: gerak dikurangi (sama dengan halaman lain) */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+      .cek-lingkar, .cek-tanda { stroke-dashoffset: 0; } /* centang tetap tampil penuh tanpa animasi */
+    }
+  </style>
+  <!-- Modul bersama NusaPangan: Mode Gelap, Profil Akun (NusaPangan.Akun), Toast Pegas, AnimasiUI -->
+  <script src="app.js"></script>
+</head>
+
+<body class="bg-krem font-sans text-tua antialiased">
+
+  <!-- ===================== NAVBAR (seragam dengan market.html) ===================== -->
+  <header class="sticky top-0 z-50 bg-krem/90 backdrop-blur border-b border-tua/10">
+    <nav class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between" aria-label="Navigasi utama">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span>
+        NusaPangan
+      </a>
+      <ul class="hidden md:flex items-center gap-1 text-sm font-semibold">
+        <li><a href="index.html" class="px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+        <li><a href="farming.html" class="px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+        <li><a href="foodrescue.html" class="px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+        <li><a href="nutrisi.html" class="px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+        <li><a href="komunitas.html" class="px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+        <li class="relative dd">
+          <a href="market.html" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-tua text-white">Market <i data-lucide="chevron-down" class="w-4 h-4 dd-caret"></i></a>
+          <div class="dd-panel absolute right-0 top-full pt-2 w-64 z-50">
+            <div class="bg-tua text-white rounded-xl shadow-xl p-2 flex flex-col gap-1">
+              <a href="market.html" class="rounded-lg px-4 py-3 font-semibold hover:bg-white/10">Ingin Membeli Barang</a>
+              <span aria-disabled="true" class="rounded-lg px-4 py-3 font-semibold opacity-60 cursor-not-allowed">Ingin Menjual barang<span class="block text-xs font-medium text-white/70">Segera Hadir</span></span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <!-- Keranjang: di halaman ini berupa tautan ke market.html (modal keranjang ada di sana) -->
+      <a id="btn-keranjang" href="market.html#keranjang" class="relative w-10 h-10 grid place-items-center rounded-xl hover:bg-tua/5" aria-label="Buka keranjang belanja">
+        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+        <span id="badge-keranjang" class="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 rounded-full bg-panen text-tua text-[10px] font-extrabold grid place-items-center scale-0 transition-transform" aria-hidden="true">0</span>
+      </a>
+      <!-- Lonceng notifikasi: taruh tepat setelah #btn-keranjang (JS memastikan posisinya di sebelah keranjang) -->
+      <div id="wrap-notif" class="relative">
+        <button id="btn-notif" type="button" class="relative w-10 h-10 grid place-items-center rounded-xl hover:bg-tua/5" aria-label="Buka notifikasi" aria-haspopup="true" aria-expanded="false" aria-controls="popup-notif">
+          <i data-lucide="bell" class="w-5 h-5"></i>
+          <span id="badge-notif" class="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold grid place-items-center scale-0 transition-transform" aria-hidden="true">0</span>
+        </button>
+
+        <!-- Popup: mobile = melebar di bawah navbar, desktop = dropdown 24rem. pt-2 menjaga hover tidak "putus" di celah -->
+        <div id="popup-notif" class="hidden fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-[24rem] pt-2 z-50">
+          <div class="notif-panel mk-card shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between gap-3 px-4 pt-4">
+              <h2 class="text-lg font-extrabold">Notifikasi</h2>
+              <button id="notif-baca-semua" type="button" class="text-xs font-bold mk-aksen hover:underline">Tandai semua dibaca</button>
+            </div>
+            <div role="tablist" aria-label="Kategori notifikasi" class="mt-3 grid grid-cols-2 border-b mk-garis">
+              <button id="tab-notif-transaksi" type="button" role="tab" data-notif-tab="transaksi" aria-selected="true" aria-controls="panel-notif-transaksi" class="notif-tab">
+                Transaksi <span data-n-tab="transaksi" class="hidden ml-1 min-w-[1.125rem] rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white">0</span>
+              </button>
+              <button id="tab-notif-update" type="button" role="tab" data-notif-tab="update" aria-selected="false" tabindex="-1" aria-controls="panel-notif-update" class="notif-tab">
+                Update <span data-n-tab="update" class="hidden ml-1 min-w-[1.125rem] rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white">0</span>
+              </button>
+            </div>
+            <div id="panel-notif-transaksi" role="tabpanel" aria-labelledby="tab-notif-transaksi" class="p-4 max-h-[65vh] overflow-y-auto"></div>
+            <div id="panel-notif-update" role="tabpanel" aria-labelledby="tab-notif-update" hidden class="p-3 max-h-[65vh] overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+      <button id="btn-menu" class="md:hidden p-2 rounded-lg hover:bg-tua/5" aria-label="Buka menu" aria-expanded="false" aria-controls="menu-mobile">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </button>
+    </nav>
+    <ul id="menu-mobile" class="hidden md:hidden px-4 pb-4 text-sm font-semibold space-y-1 border-t border-tua/10">
+      <li><a href="index.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Beranda</a></li>
+      <li><a href="farming.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Urban Farming</a></li>
+      <li><a href="foodrescue.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Food Rescue</a></li>
+      <li><a href="nutrisi.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Nutrisi</a></li>
+      <li><a href="komunitas.html" class="block px-3 py-2 rounded-lg hover:bg-tua/5">Komunitas</a></li>
+      <li class="px-3 pt-2 text-xs text-tua/60">Market</li>
+      <li><a href="market.html#katalog" class="block px-3 py-2 rounded-lg bg-tua text-white">Ingin Membeli Barang</a></li>
+      <li><span class="block px-3 py-2 rounded-lg opacity-60" aria-disabled="true">Ingin Menjual barang · Segera Hadir</span></li>
+    </ul>
+  </header>
+  <!-- ===================== AKHIR NAVBAR ===================== -->
+
+  <main>
+    <section class="max-w-6xl mx-auto px-4 pt-6 pb-10" aria-label="Dashboard akun dan transaksi">
+      <nav aria-label="Jejak halaman" class="mb-5 flex items-center gap-1.5 text-sm text-tua/60">
+        <a href="market.html" class="hover:underline">Market</a>
+        <i data-lucide="chevron-right" class="w-4 h-4" aria-hidden="true"></i>
+        <span aria-current="page" class="font-semibold text-tua">Daftar Transaksi</span>
+      </nav>
+
+      <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+        <!-- ---------- SIDEBAR KIRI ---------- -->
+        <aside class="lg:col-span-3 space-y-4 lg:sticky lg:top-20" aria-label="Akun saya">
+
+          <!-- Profil akun (diisi dari NusaPangan.Akun) -->
+          <div class="mk-card p-4">
+            <div class="flex items-center gap-3">
+              <div id="akun-avatar" class="w-14 h-14 shrink-0 rounded-full bg-segar text-white grid place-items-center text-xl font-extrabold overflow-hidden" aria-hidden="true">N</div>
+              <div class="min-w-0">
+                <p id="akun-nama" class="font-extrabold truncate">Memuat…</p>
+                <p id="akun-info" class="text-xs mk-muted truncate"></p>
+              </div>
+            </div>
+            <p class="mt-3 inline-flex items-center gap-1.5 text-xs font-bold rounded-full bg-panen text-tua px-3 py-1">
+              <i data-lucide="sprout" class="w-3.5 h-3.5"></i><span id="akun-level">Member Keluarga</span>
+            </p>
+            <button id="akun-masuk" type="button" class="hidden mt-3 w-full bg-tua text-white text-sm font-bold py-2.5 rounded-xl hover:brightness-110">Masuk / Daftar</button>
+          </div>
+
+          <!-- Banner NusaPangan PLUS -->
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-tua to-segar pola-titik text-white p-4">
+            <span class="inline-flex items-center gap-1 bg-panen text-tua text-[11px] font-extrabold rounded-full px-2.5 py-1"><i data-lucide="crown" class="w-3 h-3"></i> PLUS</span>
+            <p class="mt-2 font-extrabold leading-snug">NusaPangan PLUS</p>
+            <p class="mt-1 text-xs text-white/80 leading-relaxed">Ongkir kurir komunitas lebih hemat dan poin pangan di setiap belanja.</p>
+            <button type="button" data-menu="plus" class="mt-3 w-full bg-white text-tua text-sm font-bold py-2 rounded-xl hover:brightness-95">Pelajari PLUS</button>
+          </div>
+
+          <!-- Saldo NusaPay Pangan -->
+          <div class="mk-card p-4">
+            <div class="flex items-center justify-between gap-2">
+              <p class="inline-flex items-center gap-2 text-sm font-bold">
+                <span class="w-8 h-8 rounded-lg bg-panen text-tua grid place-items-center"><i data-lucide="wallet" class="w-4 h-4"></i></span>
+                NusaPay Pangan
+              </p>
+              <button id="saldo-toggle" type="button" aria-pressed="false" aria-label="Sembunyikan saldo" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-segar/10">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <p id="saldo-nominal" class="mt-3 text-2xl font-extrabold break-words" aria-live="polite">Rp 0</p>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" data-menu="isi-saldo" class="bg-panen text-tua text-sm font-bold py-2 rounded-xl hover:brightness-110">Top Up</button>
+              <button type="button" data-menu="mutasi" class="mk-btn-garis">Mutasi</button>
+            </div>
+          </div>
+
+          <!-- Voucher Subsidi (diisi dari VOUCHER_SUBSIDI) -->
+          <div class="mk-card p-4">
+            <div class="flex items-center justify-between gap-2">
+              <p class="inline-flex items-center gap-2 text-sm font-bold"><i data-lucide="ticket" class="w-4 h-4 text-segar"></i> Voucher Subsidi</p>
+              <span id="voucher-jumlah" class="text-xs font-bold rounded-full bg-segar/15 text-segar px-2 py-0.5">0</span>
+            </div>
+            <ul id="voucher-daftar" class="mt-3 space-y-2"></ul>
+          </div>
+
+          <!-- Menu akordeon -->
+          <nav class="mk-card overflow-hidden" aria-label="Menu akun">
+            <!-- Kotak Masuk -->
+            <h3>
+              <button type="button" data-acc id="acc-masuk-btn" aria-expanded="false" aria-controls="acc-masuk" class="w-full flex items-center justify-between gap-3 px-4 py-3 font-bold text-left hover:bg-segar/10">
+                <span class="inline-flex items-center gap-2"><i data-lucide="inbox" class="w-4 h-4 text-segar"></i> Kotak Masuk</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 mk-chev"></i>
+              </button>
+            </h3>
+            <div id="acc-masuk" class="mk-acc" data-buka="false" role="region" aria-labelledby="acc-masuk-btn">
+              <div inert><ul class="px-2 pb-2">
+                <li><button type="button" data-menu="chat" class="mk-item"><i data-lucide="message-circle" class="w-4 h-4"></i> Chat</button></li>
+                <li><button type="button" data-menu="diskusi" class="mk-item"><i data-lucide="messages-square" class="w-4 h-4"></i> Diskusi Produk</button></li>
+                <li><button type="button" data-menu="ulasan" class="mk-item"><i data-lucide="star" class="w-4 h-4"></i> Ulasan</button></li>
+                <li><button type="button" data-menu="bantuan" class="mk-item"><i data-lucide="life-buoy" class="w-4 h-4"></i> Pesan Bantuan</button></li>
+              </ul></div>
+            </div>
+
+            <!-- Pembelian -->
+            <h3 class="border-t mk-garis">
+              <button type="button" data-acc id="acc-beli-btn" aria-expanded="true" aria-controls="acc-beli" class="w-full flex items-center justify-between gap-3 px-4 py-3 font-bold text-left hover:bg-segar/10">
+                <span class="inline-flex items-center gap-2"><i data-lucide="shopping-bag" class="w-4 h-4 text-segar"></i> Pembelian</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 mk-chev"></i>
+              </button>
+            </h3>
+            <div id="acc-beli" class="mk-acc" data-buka="true" role="region" aria-labelledby="acc-beli-btn">
+              <div><ul class="px-2 pb-2">
+                <li><button type="button" data-menu="menunggu" class="mk-item"><i data-lucide="clock" class="w-4 h-4"></i> Menunggu Pembayaran</button></li>
+                <li><button type="button" data-menu="transaksi" aria-current="true" class="mk-item"><i data-lucide="receipt-text" class="w-4 h-4"></i> Daftar Transaksi</button></li>
+              </ul></div>
+            </div>
+
+            <!-- Profil -->
+            <h3 class="border-t mk-garis">
+              <button type="button" data-acc id="acc-profil-btn" aria-expanded="false" aria-controls="acc-profil" class="w-full flex items-center justify-between gap-3 px-4 py-3 font-bold text-left hover:bg-segar/10">
+                <span class="inline-flex items-center gap-2"><i data-lucide="user-round" class="w-4 h-4 text-segar"></i> Profil</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 mk-chev"></i>
+              </button>
+            </h3>
+            <div id="acc-profil" class="mk-acc" data-buka="false" role="region" aria-labelledby="acc-profil-btn">
+              <div inert><ul class="px-2 pb-2">
+                <li><button type="button" data-menu="wishlist" class="mk-item"><i data-lucide="heart" class="w-4 h-4"></i> Wishlist</button></li>
+                <li><button type="button" data-menu="alamat" class="mk-item"><i data-lucide="map-pin" class="w-4 h-4"></i> Daftar Alamat</button></li>
+                <li><button type="button" data-menu="pengaturan" class="mk-item"><i data-lucide="settings" class="w-4 h-4"></i> Pengaturan Akun</button></li>
+              </ul></div>
+            </div>
+          </nav>
+        </aside>
+
+        <!-- ---------- AREA UTAMA KANAN ---------- -->
+        <section id="area-transaksi" class="lg:col-span-9 scroll-mt-24" aria-labelledby="judul-transaksi">
+          <div class="mk-card p-5 md:p-6">
+            <div>
+              <h2 id="judul-transaksi" tabindex="-1" class="text-2xl font-extrabold">Daftar Transaksi</h2>
+              <p class="mt-1 text-sm mk-muted">Pantau pesanan pangan Anda, dari yang berlangsung sampai selesai.</p>
+            </div>
+
+            <!-- Toolbar filter multi-parameter: pencarian + kategori + rentang tanggal + status -->
+            <div class="mt-5 space-y-3" role="search" aria-label="Filter transaksi">
+              <div class="relative">
+                <label for="trx-cari" class="sr-only">Cari transaksi berdasarkan nomor invoice, nama produk, atau kelompok tani</label>
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 mk-muted"></i>
+                <input id="trx-cari" type="search" autocomplete="off" placeholder="Cari invoice, nama produk, atau kelompok tani…" class="mk-input pl-9" />
+              </div>
+
+              <div class="grid sm:grid-cols-3 gap-3">
+                <div>
+                  <label for="trx-kategori" class="block text-xs font-semibold mk-muted mb-1">Kategori</label>
+                  <select id="trx-kategori" class="mk-input"><option value="semua">Semua kategori</option></select>
+                </div>
+                <div>
+                  <label for="trx-dari" class="block text-xs font-semibold mk-muted mb-1">Dari tanggal</label>
+                  <input id="trx-dari" type="date" class="mk-input" />
+                </div>
+                <div>
+                  <label for="trx-sampai" class="block text-xs font-semibold mk-muted mb-1">Sampai tanggal</label>
+                  <input id="trx-sampai" type="date" class="mk-input" />
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div id="trx-filter-status" class="flex flex-wrap gap-2" role="group" aria-label="Filter status transaksi">
+                  <button type="button" data-status="semua" aria-pressed="true" class="mk-chip">Semua <span data-n class="ml-1 text-xs opacity-80">0</span></button>
+                  <button type="button" data-status="berlangsung" aria-pressed="false" class="mk-chip">Berlangsung <span data-n class="ml-1 text-xs opacity-80">0</span></button>
+                  <button type="button" data-status="selesai" aria-pressed="false" class="mk-chip">Berhasil <span data-n class="ml-1 text-xs opacity-80">0</span></button>
+                  <button type="button" data-status="dibatalkan" aria-pressed="false" class="mk-chip">Tidak Berhasil <span data-n class="ml-1 text-xs opacity-80">0</span></button>
+                </div>
+                <button id="trx-reset" type="button" class="inline-flex items-center gap-1.5 text-sm font-semibold mk-aksen hover:underline">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Filter
+                </button>
+              </div>
+            </div>
+
+            <!-- Indikator filter tahap (diisi Notif.segarkan) -->
+            <div id="trx-tahap-aktif" class="hidden mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span class="mk-muted">Menyaring tahap:</span>
+              <span id="trx-tahap-label" class="mk-badge mk-badge-berlangsung"></span>
+              <button id="trx-tahap-hapus" type="button" class="font-semibold mk-aksen hover:underline">Hapus saringan</button>
+            </div>
+
+            <p id="trx-jumlah" class="mt-4 text-sm mk-muted" aria-live="polite"></p>
+
+            <!-- Kontainer daftar: kartu (#trx-list), loading (#trx-skeleton), kosong (#trx-kosong) -->
+            <div id="trx-daftar" class="mt-3" aria-busy="true">
+              <ol id="trx-list" class="hidden space-y-4"></ol>
+
+              <div id="trx-skeleton" class="space-y-4" aria-hidden="true">
+                <div class="mk-card p-4 space-y-4">
+                  <div class="flex gap-3"><div class="mk-shimmer h-4 w-24"></div><div class="mk-shimmer h-4 w-20"></div></div>
+                  <div class="flex gap-3"><div class="mk-shimmer w-14 h-14 shrink-0"></div><div class="flex-1 space-y-2"><div class="mk-shimmer h-4 w-2/3"></div><div class="mk-shimmer h-3 w-1/3"></div></div></div>
+                  <div class="mk-shimmer h-10 w-full"></div>
+                </div>
+                <div class="mk-card p-4 space-y-4">
+                  <div class="flex gap-3"><div class="mk-shimmer h-4 w-28"></div><div class="mk-shimmer h-4 w-16"></div></div>
+                  <div class="flex gap-3"><div class="mk-shimmer w-14 h-14 shrink-0"></div><div class="flex-1 space-y-2"><div class="mk-shimmer h-4 w-1/2"></div><div class="mk-shimmer h-3 w-1/4"></div></div></div>
+                  <div class="mk-shimmer h-10 w-full"></div>
+                </div>
+              </div>
+
+              <div id="trx-kosong" class="hidden rounded-2xl border border-dashed mk-garis p-10 text-center">
+                <span class="mx-auto w-14 h-14 rounded-2xl bg-segar/15 text-segar grid place-items-center"><i data-lucide="receipt-text" class="w-7 h-7"></i></span>
+                <p id="trx-kosong-judul" class="mt-4 font-extrabold">Belum ada transaksi</p>
+                <p id="trx-kosong-teks" class="mt-1 text-sm mk-muted max-w-sm mx-auto">Pesanan Anda akan muncul di sini setelah Anda menyelesaikan checkout.</p>
+                <div class="mt-5 flex flex-wrap justify-center gap-2">
+                  <a id="trx-kosong-belanja" href="market.html#katalog" class="inline-flex items-center gap-2 bg-panen text-tua font-bold px-5 py-2.5 rounded-xl hover:brightness-110">Mulai belanja</a>
+                  <button id="trx-kosong-reset" type="button" class="hidden mk-btn-garis">Reset Filter</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== MODAL INVOICE TRANSAKSI ===================== -->
+  <dialog id="modal-invoice" class="dlg" aria-labelledby="judul-invoice">
+    <div class="panel-m mk-card shadow-2xl">
+      <div class="flex items-center justify-between gap-3 p-5 border-b mk-garis">
+        <h2 id="judul-invoice" class="text-xl font-extrabold">Rincian Invoice</h2>
+        <button type="button" data-tutup class="w-9 h-9 grid place-items-center rounded-xl hover:bg-segar/10" aria-label="Tutup rincian invoice"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="isi-invoice" class="isi-m p-5"></div>
+    </div>
+  </dialog>
+
+  <!-- ===================== MODAL ULASAN PRODUK ===================== -->
+  <dialog id="modal-ulas" class="dlg" aria-labelledby="judul-ulas">
+    <div class="panel-m mk-card shadow-2xl">
+      <div class="flex items-center justify-between gap-3 p-5 border-b mk-garis">
+        <h2 id="judul-ulas" class="text-xl font-extrabold">Beri Ulasan</h2>
+        <button type="button" data-tutup class="w-9 h-9 grid place-items-center rounded-xl hover:bg-segar/10" aria-label="Tutup form ulasan"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-ulas" novalidate class="isi-m p-5 space-y-5"></form>
+    </div>
+  </dialog>
+
+  <!-- Menu titik tiga kartu transaksi (satu elemen bersama, diposisikan lewat JS) -->
+  <div id="trx-menu" role="menu" class="hidden" aria-label="Aksi lain transaksi">
+    <button type="button" role="menuitem" data-menu-aksi="kulkas" class="mk-item"><span aria-hidden="true">➕</span> Masukkan ke Kulkas Food Rescue</button>
+    <button type="button" role="menuitem" data-menu-aksi="ai" class="mk-item"><span aria-hidden="true">💬</span> Tanya Nusa-Ai</button>
+  </div>
+
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-tua text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl hidden z-50" role="status"></div>
+
+  <!-- ===================== FOOTER (seragam) ===================== -->
+  <footer class="bg-tua text-white/80">
+    <div class="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-8 text-sm">
+      <div>
+        <p class="flex items-center gap-2 text-white font-extrabold text-lg"><span class="rounded-lg px-1.5 py-1 grid place-items-center"><img src="logos.png" alt="Logo NusaPangan" class="h-8 w-auto" /></span> NusaPangan</p>
+        <p class="mt-3 leading-relaxed">Ekosistem Ketahanan Pangan Keluarga & Komunitas. Dibuat untuk lomba web development bertema Ketahanan Pangan.</p>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Halaman</p>
+        <ul class="space-y-2">
+          <li><a class="hover:text-panen" href="index.html">Beranda</a></li>
+          <li><a class="hover:text-panen" href="farming.html">Urban Farming</a></li>
+          <li><a class="hover:text-panen" href="foodrescue.html">Food Rescue</a></li>
+          <li><a class="hover:text-panen" href="nutrisi.html">Nutrisi</a></li>
+          <li><a class="hover:text-panen" href="komunitas.html">Komunitas</a></li>
+          <li><a class="hover:text-panen" href="market.html">Market</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-white font-bold mb-3">Tentang Transaksi</p>
+        <p class="leading-relaxed">Dikembangkan oleh Zaidan, Haidar, dan Nashir menggunakan HTML5, Tailwind CSS, Lucide Icons, dan JavaScript murni.</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 py-4 text-center text-xs">© <span id="tahun"></span> NusaPangan. Semua hak dilindungi.</div>
+  </footer>
+
+  <!-- Skrip bersama Market: transaksi.js (data produk, transaksi, sidebar akun, lonceng) -->
+  <script src="transaksi.js"></script>
+  <script>
+    'use strict';
+    document.addEventListener('DOMContentLoaded', () => {
+      $('tahun').textContent = new Date().getFullYear();
+
+      /* Navbar: menu mobile + keranjang dipindah ke grup tombol app.js (di samping tema & akun), sama seperti market.html */
+      const tombol = $('btn-menu'), menu = $('menu-mobile');
+      tombol.addEventListener('click', () => tombol.setAttribute('aria-expanded', String(menu.classList.toggle('hidden') === false)));
+      const tema = $('btn-tema');
+      if (tema) tema.parentNode.insertBefore($('btn-keranjang'), tema.parentNode.firstChild);
+
+      /* Badge keranjang dibaca dari LocalStorage (modal keranjang ada di market.html) */
+      window.perbaruiBadgeKeranjang = () => {
+        const d = Simpan.ambil('keranjang', []);
+        const n = (Array.isArray(d) ? d : []).reduce((a, x) => a + (Math.floor(Number(x && x.qty)) || 0), 0);
+        const b = $('badge-keranjang');
+        b.textContent = n > 99 ? '99+' : n; b.classList.toggle('scale-0', n === 0);
+        $('btn-keranjang').setAttribute('aria-label', n ? `Buka keranjang belanja, ${n} item` : 'Buka keranjang belanja');
+      };
+      window.perbaruiBadgeKeranjang();
+      window.addEventListener('storage', window.perbaruiBadgeKeranjang);
+
+      /* Saringan awal dari URL: ?tahap=dikirim  ?status=selesai  &invoice=NPM-XXXX */
+      const q = new URLSearchParams(location.search), invoice = q.get('invoice');
+      if (TAHAP_TRX[q.get('tahap')]) Transaksi.filter.tahap = q.get('tahap');
+      if (STATUS_TRX[q.get('status')]) Transaksi.filter.status = q.get('status');
+      Transaksi.urlSinkron = true;
+      Transaksi.sesudahMuat = () => {
+        const el = invoice && $('trx-list').querySelector(`[data-trx="${CSS.escape(invoice)}"]`);
+        if (el) { el.scrollIntoView({ behavior: REDUKSI ? 'auto' : 'smooth', block: 'center' }); el.focus({ preventScroll: true }); }
+      };
+
+      /* Lonceng di halaman ini: saringan diterapkan langsung tanpa memuat ulang */
+      document.addEventListener('np:transaksi', (e) => { e.preventDefault(); Transaksi.terapkanDariTautan(e.detail.tahap, e.detail.invoice); });
+
+      AksiTrx.init();
+      Transaksi.init();   // seed 3 transaksi contoh (sekali), lalu memuat daftar
+      AkunSidebar.init();
+      ikon();
+    });
+  </script>
+</body>
+</html>
